@@ -1,0 +1,77 @@
+The backend library provides several high-level operations to fetch and
+manipulate data. It is implemented in terms of effects.
+
+The backend itself is seperate from the communication layer. This should
+provide us with the flexibility to implement server-side and client-side
+frontends.
+
+ * User authentication,
+ * Database operations,
+ * and possibly indicating errors.
+
+While most backend operations are expected to use all of the effects
+above to some degree, we define more specialized effects for other,
+more specific operations, like for querying IsbnDB.
+
+Throughout the application, we use domain-specific, strong types as far
+as possible. At the database and API layers, we parse the weak, underlying
+types into the stronger, validated types. Within the application, we can
+guarantee that all associated conditions on those types hold.
+
+Regarding the handling of business logic errors, we try to push as many
+constraints as possible into database constraints and translate constraint
+violations into business logic errors. This is the best way to ensure
+consistency.
+
+The strong, domain-specific types are implemented using Buki.Validation.
+This module, one the one hand, provides the Validate type class:
+
+    class Validate a where
+      type Unvalidated a
+      validate :: Path -> Unvalidated a -> Validation ValidationErrors a
+      unvalidate :: a -> Unvalidated a
+
+We use a single underlying type per strong type, which is defined by providing
+an instance for the Unvalidated type. This means that the underlying representation
+at the database layer and the API layer must be the same. This is not ideal,
+but a design choice we are going forward with due to simplicity.
+
+ValidationErrors encode errors into a form that should be easily interpretable
+by front-ends. Errors are assigned an error label, the path identifies which
+fields are affected by the error in case of aggregated types:
+
+    data ValidationError = ValidationError
+        { validationErrorPath :: Path
+        , validationErrorLabel :: ErrorLabel
+        }
+
+    newtype ErrorLabel = ErrorLabel { unErrorLabel :: Text }
+    type ValidationErrors = [ValidationError]
+    type Path = [Text]
+
+There is a template haskell function, which defines a Validate instance for records.
+If a field has a Validate instance, it is validated, otherwise it is taken as is:
+
+    newtype Name = Name Text
+    instance Validate Name where
+      type Unvalidated Name = Text
+      validate _ a = pure a
+      unvalidate (Name t) = t
+
+    data Aggregated = Aggregated
+      { aggregatedName :: Name
+      , aggregatedText :: Text
+      }
+
+    $(makeValidatable ''Aggregated)
+
+makeValidatable defines a record
+
+    data UnvalidatedAggregated = UnvalidatedAggregated
+      { unvalidatedAggregatedName :: Text
+      , unvalidatedAggregatedText :: Text
+      }
+
+as well as an instance for `Validate Aggregated` with the underlying type
+`UnvalidatedAggregated`. It also defines instances for serializing from and
+to JSON using Aeson.
