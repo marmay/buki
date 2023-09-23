@@ -69,6 +69,8 @@ library
                     , Buki.StaticFrontend.Core.AppM
                     , Buki.StaticFrontend.Core.FormValidation
                     , Buki.StaticFrontend.Core.HtmlContent
+                    , Buki.StaticFrontend.Static.API
+                    , Buki.StaticFrontend.Static.Server
                     , Buki.StaticFrontend.User.Registration.API
                     , Buki.StaticFrontend.User.Registration.Controller
                     , Buki.StaticFrontend.User.Registration.Types
