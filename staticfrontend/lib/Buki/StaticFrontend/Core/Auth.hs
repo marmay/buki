@@ -12,7 +12,7 @@ import Buki.Model.Types (SessionId, Id (Id))
 import Network.Wai (Request (..))
 import Servant.Server.Experimental.Auth
 import Web.Cookie (parseCookies)
-import Buki.Backend.Session (authorize, runSessionDb)
+import Buki.Backend.Session (authorize, runSessionDb, HasValidatePermissions')
 import qualified Buki.Err as B (Err(..))
 import Buki.StaticFrontend.Core.AppM
 import Servant.API.Experimental.Auth
@@ -40,14 +40,14 @@ authReqNoUser ctx = mkAuthHandler $ \req -> runAppM ctx $ do
 authReqOptionalUser :: AppContext -> AuthHandler Request (Maybe (Authorization '[]))
 authReqOptionalUser ctx = mkAuthHandler $ \req -> runAppM ctx $ authTryUser @'[] req
 
-authReqAuthorizedUser :: forall (permissions :: [AuthorizationPermission]). AppContext -> AuthHandler Request (Authorization permissions)
+authReqAuthorizedUser :: forall (permissions :: [AuthorizationPermission]). HasValidatePermissions' permissions => AppContext -> AuthHandler Request (Authorization permissions)
 authReqAuthorizedUser ctx = mkAuthHandler $ \req -> runAppM ctx $ do
   user <- authTryUser @permissions req
   case user of
     Nothing -> undefined -- throwErr $ Err 403 "You must be logged in to access this resource."
     Just user' -> pure user'
 
-authTryUser :: forall (permissions :: [AuthorizationPermission]). Request -> AppM (Maybe (Authorization permissions))
+authTryUser :: forall (permissions :: [AuthorizationPermission]). HasValidatePermissions' permissions => Request -> AppM (Maybe (Authorization permissions))
 authTryUser req = do
   case extractSessionToken req of
     Nothing -> pure Nothing

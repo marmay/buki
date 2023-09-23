@@ -12,6 +12,8 @@ import qualified Text.Blaze.Html5.Attributes as HA
 
 import Buki.StaticFrontend.Core.Views.Message
 import Data.Default
+import Buki.StaticFrontend.Core.Views.Menu
+import Buki.StaticFrontend.Core.ViewM
 
 data RegularPage = RegularPage
   { regularPageTitle :: Text
@@ -26,15 +28,18 @@ instance Default RegularPage where
     , regularPageMessages = []
     }
 
-regularPage :: RegularPage -> H.Html -> H.Html
+regularPage :: RegularPage -> H.Html -> ViewM H.Html
 regularPage RegularPage{..} inner = do
-  H.html $ do
+  menuBar' <- menuBar Nothing
+  pure $ H.html $ do
     H.head $ do
       H.title $ H.toHtml fullTitle
       H.link
         ! HA.rel "stylesheet"
         ! HA.href "/static/css/bootstrap.min.css"
     H.body $ do
+      H.h1 "Menu: "
+      menuBar'
       H.h1 $ H.toHtml regularPageTitle
       mapM_ (H.h2 . H.toHtml) regularPageSubTitle
       renderMessages regularPageMessages

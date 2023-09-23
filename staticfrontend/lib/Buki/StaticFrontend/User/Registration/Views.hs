@@ -20,7 +20,7 @@ import Data.Text (Text)
 import Buki.StaticFrontend.User.Registration.API
 import Data.Proxy (Proxy(..))
 
-registerPage' :: [Message] -> H.Html -> H.Html
+registerPage' :: [Message] -> H.Html -> ViewM H.Html
 registerPage' messages =
   regularPage
     def
@@ -30,12 +30,13 @@ registerPage' messages =
 
 registerPage :: Maybe RegistrationError -> [(Text, Text)] -> FormValidationData -> ViewM H.Html
 registerPage registrationError kidsgroups formValidationData = do
-  registerPage' (toMessages registrationError) <$> registerForm kidsgroups formValidationData
+  form <- registerForm kidsgroups formValidationData
+  registerPage' (toMessages registrationError) form
 
-registerSucceedPage :: H.Html
+registerSucceedPage :: ViewM H.Html
 registerSucceedPage = registerPage' [Message SuccessMessage "Registrierung erfolgreich" "Die Registrierung war erfolgreich. Sie können sich nun einloggen."] mempty
 
-registerDisabledPage :: H.Html
+registerDisabledPage :: ViewM H.Html
 registerDisabledPage =
   registerPage'
     [Message ErrorMessage "Registrierung deaktiviert" "Die Registrierung ist derzeit deaktiviert, da das System noch nicht vollständig eingerichtet ist."]

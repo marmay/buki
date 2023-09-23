@@ -8,6 +8,8 @@ module Buki.Backend.Auth (
 
 import Data.Proxy
 import Data.Text (Text)
+import qualified Data.Set as S
+
 import Buki.Types.Name (Name (..))
 import Buki.Types.EmailAddress (EmailAddress (..))
 
@@ -15,7 +17,7 @@ import Buki.Types.EmailAddress (EmailAddress (..))
 -- Some functions require users to have particular permissions.
 data AuthorizationPermission
   = UserManagement
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Enum, Bounded, Show)
 
 -- | Constraint that checks for a prove that the user has a particular set of permissions.
 -- This type class is properly implemented by the Session backend, which is the only
@@ -31,7 +33,7 @@ class auth `HasPermissions` (ps :: [AuthorizationPermission]) where
 -- encode the authorization into the type system and push the handling of authorization
 -- errors out of the business logic towards the API layer or the frontend.
 data Authorization (r :: [AuthorizationPermission]) where
-  Authorization :: Name -> EmailAddress -> Authorization r
+  Authorization :: Name -> EmailAddress -> S.Set AuthorizationPermission -> Authorization r
 
 class (a :: AuthorizationPermission) `IsIn` (as :: [AuthorizationPermission])
 instance {-# OVERLAPS #-} a `IsIn` (a ': as)
@@ -42,7 +44,7 @@ instance '[] `Subset` bs
 instance (a `IsIn` bs, as `Subset` bs) => (a ': as) `Subset` bs
 
 instance forall (ps :: [AuthorizationPermission]) (ps' :: [AuthorizationPermission]). ps' `Subset` ps => Authorization ps `HasPermissions` ps' where
-  authLogIdentifier (Authorization name emailAddress) _ = unName name <> " (" <> unEmailAddress emailAddress <> ")"
+  authLogIdentifier (Authorization name emailAddress _) _ = unName name <> " (" <> unEmailAddress emailAddress <> ")"
 
 data FakeAuthorization (ps :: [AuthorizationPermission]) where
   FakeAuthorization :: FakeAuthorization ps
