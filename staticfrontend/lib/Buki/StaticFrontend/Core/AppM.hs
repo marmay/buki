@@ -2,12 +2,16 @@
 module Buki.StaticFrontend.Core.AppM where
 
 import Data.Text (Text)
-import Control.Monad.Reader (ReaderT, asks)
 import Data.Proxy
 import Servant
 import Database.PostgreSQL.Simple (Connection, ConnectInfo, connect, close)
 import Control.Monad.Catch (bracket, MonadMask)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Effectful (Eff, IOE, runEff)
+import qualified Buki.Eff.Db as E
+import Buki.StaticFrontend.Core.ViewM (ViewM, ViewContext(..))
+import Control.Monad.Reader (ReaderT, asks, runReader, runReaderT)
+import qualified Buki.Eff.Time as E
 
 newtype AppConfig = AppConfig
   { appConfigDbConnectInfo :: ConnectInfo
@@ -18,7 +22,15 @@ data AppContext = AppContext
   , appDbConn :: Connection
   }
 
+toViewContext :: AppContext -> ViewContext
+toViewContext AppContext{..} = ViewContext
+  { viewContextUrlPrefix = appUrlPrefix
+  }
+
 type AppM = ReaderT AppContext Handler
+
+runAppM :: AppContext -> AppM a -> Handler a
+runAppM = flip runReaderT
 
 withAppContext :: forall m a. (MonadIO m, MonadMask m) => AppConfig -> (AppContext -> m a) -> m a
 withAppContext conf =
@@ -37,7 +49,15 @@ closeAppContext :: forall m. (MonadIO m) => AppContext -> m ()
 closeAppContext AppContext{..} = do
   liftIO $ close appDbConn
 
-safeLink' :: forall endpoint api. (IsElem endpoint api, HasLink endpoint, ToHttpApiData (MkLink endpoint Link)) => Proxy api -> Proxy endpoint -> ReaderT AppContext Handler Text
+safeLink' :: forall endpoint api. (IsElem endpoint api, HasLink endpoint, ToHttpApiData (MkLink endpoint Link)) => Proxy api -> Proxy endpoint -> AppM Text
 safeLink' api endpoint = do
   urlPrefix' <- asks appUrlPrefix
   pure $ urlPrefix' <> toUrlPiece (safeLink api endpoint)
+
+runEffects :: forall a. Eff '[E.Db, E.Time, IOE] a -> AppM a
+runEffects eff = do
+  conn <- asks appDbConn
+  liftIO $ runEff $ E.runTime $ E.runDb conn eff
+
+liftViewM :: ViewM a -> AppM a
+liftViewM a = asks (runReader a . toViewContext)

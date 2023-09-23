@@ -1,40 +1,51 @@
-module Buki.StaticFrontend.User.Registration.Types
-  ( RegistrationData(..)
-  , registrationDataNameName
-  , registrationDataEmailName
-  , registrationDataKidsgroupIdName
-  , registrationDataKidSymbolName
-  , registrationDataPasswordName
-  , registrationDataConfirmPasswordName
-  ) where
+module Buki.StaticFrontend.User.Registration.Types (
+  RegisterData (..),
+  RegistrationError (..),
+  registerDataNameName,
+  registerDataEmailName,
+  registerDataKidsgroupIdName,
+  registerDataKidSymbolName,
+  registerDataPasswordName,
+  registerDataConfirmPasswordName,
+) where
 
-import Data.Text (Text)
-import Buki.Types (Name, EmailAddress, Password)
 import Buki.StaticFrontend.Core.FormValidation (ValidateFromForm (..), formValidate)
+import Buki.Types (EmailAddress, Name, Password)
+import Data.Text (Text)
 import Data.UUID (UUID)
 
-data RegistrationData = RegistrationData
-  { registrationDataName :: Name
-  , registrationDataEmail :: EmailAddress
-  , registrationDataKidsgroupId :: UUID
-  , registrationDataKidSymbol :: Name
-  , registrationDataPassword :: Password
-  , registrationDataConfirmPassword :: Password
-  } deriving (Show, Eq)
+data RegisterData = RegisterData
+  { registerDataName :: Name
+  , registerDataEmail :: EmailAddress
+  , registerDataKidsgroupId :: UUID
+  , registerDataKidSymbol :: Name
+  , registerDataPassword :: Password
+  , registerDataConfirmPassword :: Password
+  }
+  deriving (Show, Eq)
 
-registrationDataNameName, registrationDataEmailName, registrationDataKidsgroupIdName, registrationDataKidSymbolName, registrationDataPasswordName, registrationDataConfirmPasswordName :: Text
-registrationDataNameName = "name"
-registrationDataEmailName = "email"
-registrationDataKidsgroupIdName = "kidsgroup_id"
-registrationDataKidSymbolName = "kid_symbol"
-registrationDataPasswordName = "password"
-registrationDataConfirmPasswordName = "confirmPassword"
+registerDataNameName, registerDataEmailName, registerDataKidsgroupIdName, registerDataKidSymbolName, registerDataPasswordName, registerDataConfirmPasswordName :: Text
+registerDataNameName = "name"
+registerDataEmailName = "email"
+registerDataKidsgroupIdName = "kidsgroup_id"
+registerDataKidSymbolName = "kid_symbol"
+registerDataPasswordName = "password"
+registerDataConfirmPasswordName = "confirmPassword"
 
-instance ValidateFromForm RegistrationData where
-  validateFromForm form = RegistrationData
-    <$> formValidate registrationDataNameName form
-    <*> formValidate registrationDataEmailName form
-    <*> formValidate registrationDataKidsgroupIdName form
-    <*> formValidate registrationDataKidSymbolName form
-    <*> formValidate registrationDataPasswordName form
-    <*> formValidate registrationDataConfirmPasswordName form
+instance ValidateFromForm RegisterData where
+  validateFromForm form =
+    RegisterData
+      <$> formValidate registerDataNameName form
+      <*> formValidate registerDataEmailName form
+      <*> formValidate registerDataKidsgroupIdName form
+      <*> formValidate registerDataKidSymbolName form
+      <*> formValidate registerDataPasswordName form
+      <*> formValidate registerDataConfirmPasswordName form
+
+data RegistrationError
+  = RegistrationDisabledError
+  | InputError
+  | PasswordsDontMatchError
+  | EmailAddressTakenError
+  | InternalError Text
+  deriving (Show, Eq)

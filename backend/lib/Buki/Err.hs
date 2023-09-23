@@ -3,7 +3,7 @@
 
 -- | Super simplistic checked exceptions that I may replace with a off-the-shelf
 -- library later on.
-module Buki.Err (module Buki.Union, Err(..), mkFailure, mkSuccess, In(..), Embedable(..), processWith, mapWith, guardWith, mapErrors, constMapErrors, wrapErrors, mapWithPure) where
+module Buki.Err (module Buki.Union, Err (..), mkFailure, mkSuccess, In (..), Embedable (..), embeddingErrors, processWith, mapWith, guardWith, mapErrors, constMapErrors, wrapErrors, mapWithPure) where
 
 import Buki.Union
 
@@ -31,32 +31,49 @@ mkFailure = Failure . inject
 mkSuccess :: forall err a. a -> Err err a
 mkSuccess = Success
 
-embeddingErrors :: forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
-  (Monad m, Embedable errs errs') => m (Err errs a) -> (a -> m (Err errs' b)) -> m (Err errs' b)
+embeddingErrors ::
+  forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
+  (Monad m, Embedable errs errs') =>
+  m (Err errs a) ->
+  (a -> m (Err errs' b)) ->
+  m (Err errs' b)
 embeddingErrors action f = do
   e <- action
   case e of
     Success a -> f a
     Failure failure -> pure $ Failure (embed failure)
 
-wrapErrors :: forall (wrapper :: Type -> Type) (errs :: [Type]) (a :: Type).
-  Applicative wrapper =>
-  Err errs a -> Err '[wrapper (Union errs)] a
+wrapErrors ::
+  forall (wrapper :: Type -> Type) (errs :: [Type]) (a :: Type).
+  (Applicative wrapper) =>
+  Err errs a ->
+  Err '[wrapper (Union errs)] a
 wrapErrors (Success a) = mkSuccess a
 wrapErrors (Failure f) = mkFailure (pure f :: wrapper (Union errs))
 
-constMapErrors :: forall (err :: Type) (errs :: [Type]) (errs' :: [Type]) (a :: Type).
-  (err `In` errs') => err -> Err errs a -> Err errs' a
+constMapErrors ::
+  forall (err :: Type) (errs :: [Type]) (errs' :: [Type]) (a :: Type).
+  (err `In` errs') =>
+  err ->
+  Err errs a ->
+  Err errs' a
 constMapErrors _ (Success a) = mkSuccess a
 constMapErrors e (Failure _) = mkFailure e
 
-mapErrors :: forall (errs' :: [Type]) (errs :: [Type]) (a :: Type).
-  (Union errs -> Union errs') -> Err errs a -> Err errs' a
+mapErrors ::
+  forall (errs' :: [Type]) (errs :: [Type]) (a :: Type).
+  (Union errs -> Union errs') ->
+  Err errs a ->
+  Err errs' a
 mapErrors _ (Success a) = mkSuccess a
 mapErrors f (Failure e) = Failure (f e :: Union errs')
 
-guardWith :: forall (m :: Type -> Type) (err :: Type) (errs :: [Type]) (a :: Type).
-  (Monad m, err `In` errs) => m (Err errs a) -> (a -> m (Maybe err)) -> m (Err errs a)
+guardWith ::
+  forall (m :: Type -> Type) (err :: Type) (errs :: [Type]) (a :: Type).
+  (Monad m, err `In` errs) =>
+  m (Err errs a) ->
+  (a -> m (Maybe err)) ->
+  m (Err errs a)
 guardWith action h = do
   a <- action
   case a of
@@ -67,22 +84,32 @@ guardWith action h = do
         Just err -> pure $ mkFailure err
     (Failure e) -> pure $ Failure e
 
-mapWith :: forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
+mapWith ::
+  forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
   (Monad m, Embedable errs errs') =>
-  m (Err errs a) -> (a -> m (Err errs' b)) -> m (Err errs' b)
+  m (Err errs a) ->
+  (a -> m (Err errs' b)) ->
+  m (Err errs' b)
 mapWith = embeddingErrors
 
-mapWithPure :: forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
+mapWithPure ::
+  forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
   (Monad m, Embedable errs errs') =>
-  m (Err errs a) -> (a -> b) -> m (Err errs' b)
+  m (Err errs a) ->
+  (a -> b) ->
+  m (Err errs' b)
 mapWithPure action f = do
   a <- action
   case a of
     (Success a') -> pure $ mkSuccess (f a')
     (Failure e) -> pure $ Failure (embed e)
 
-processWith :: forall (m :: Type -> Type) (errs :: [Type]) (a :: Type) (b :: Type).
-  Monad m => m (Err errs a) -> (a -> m (Err errs b)) -> m (Err errs a)
+processWith ::
+  forall (m :: Type -> Type) (errs :: [Type]) (a :: Type) (b :: Type).
+  (Monad m) =>
+  m (Err errs a) ->
+  (a -> m (Err errs b)) ->
+  m (Err errs a)
 processWith action h = do
   a <- action
   case a of

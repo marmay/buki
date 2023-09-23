@@ -27,6 +27,7 @@ import Data.Text (Text)
 import Opaleye qualified as O
 import Opaleye.Operators ((.==))
 import Data.Proxy (Proxy(..))
+import Buki.Model.Types (Permissions)
 
 data InvalidSessionId = InvalidSessionId
   deriving (Eq, Show)
@@ -34,6 +35,12 @@ data LackOfPrivileges = LackOfPrivileges
   deriving (Eq, Show)
 data SessionTimedOut = SessionTimedOut
   deriving (Eq, Show)
+
+data AuthenticatedUser = AuthenticatedUser
+  { authenticatedUserName :: Name
+  , authenticatedUserEmail :: EmailAddress
+  , authenticatedUserPermissions :: Permissions
+  }
 
 data Session :: Effect where
   MakeSession ::
@@ -87,15 +94,15 @@ dbMakeSession email password sessionLength = do
             }
       mkSuccess <$> dbInsert1 M.sessionTable sessionRecord M.session'Id
 
-dbAuthorize :: forall ps es. (Db :> es, Time :> es) => M.SessionId -> NominalDiffTime -> Eff es (Err '[InvalidSessionId, SessionTimedOut, LackOfPrivileges] (Authorization ps))
-dbAuthorize sessionId sessionLength = do
+dbAuthenticate :: forall es. (Db :> es, Time :> es) => M.SessionId -> NominalDiffTime -> Eff es (Err '[InvalidSessionId, SessionTimedOut] AuthenticatedUser)
+dbAuthenticate sessionId sessionLength = do
   selectSession
     `guardWith` validateSession
     `processWith` updateSession
-    `guardWith` validatePermissions
-    `mapWith` makeAuthorization
+    `mapWithPure` makeAuthenticatedUser
+
   where
-    selectSession :: Eff es (Err '[InvalidSessionId, SessionTimedOut, LackOfPrivileges] (Name, EmailAddress, M.Permissions, UTCTime))
+    selectSession :: Eff es (Err '[InvalidSessionId, SessionTimedOut] (Text, Text, Permissions, UTCTime))
     selectSession =
       constMapErrors InvalidSessionId <$>
         dbSelect1 (proc () -> do
@@ -109,14 +116,12 @@ dbAuthorize sessionId sessionLength = do
               , session ^. M.expiresAt
               ))
 
-    --validateSession :: (Text, Text, M.Permissions, UTCTime) -> Eff es (Maybe SessionTimedOut)
     validateSession (_, _, _, expiresAt) = do
       now <- getTime
       if now > expiresAt
         then pure $ Just SessionTimedOut
         else pure $ Nothing
 
-    --updateSession :: (Text, Text, M.Permissions, UTCTime) -> Eff es (Err '[InvalidSessionId, SessionTimedOut, LackOfPrivileges] ())
     updateSession (name, emailAddress, permissions, expiresAt) = do
       _ <- dbUpdate
         O.Update
@@ -131,14 +136,28 @@ dbAuthorize sessionId sessionLength = do
           }
       pure $ mkSuccess (name, emailAddress, permissions)
 
-    validatePermissions :: (Name, EmailAddress, M.Permissions, UTCTime) -> Eff es (Maybe LackOfPrivileges)
-    validatePermissions (_, _, permissions, _) = do
+    makeAuthenticatedUser (name, emailAddress, permissions, _) =
+      AuthenticatedUser (forceValidate name) (forceValidate emailAddress) permissions
+
+dbAuthorize :: forall ps es. (Db :> es, Time :> es) => M.SessionId -> NominalDiffTime -> Eff es (Err '[InvalidSessionId, SessionTimedOut, LackOfPrivileges] (Authorization ps))
+dbAuthorize sessionId sessionLength = do
+  dbAuthenticate sessionId sessionLength
+    `embeddingErrors` embed'
+    `guardWith` validatePermissions
+    `mapWith` makeAuthorization
+    
+  where
+    embed' :: AuthenticatedUser -> Eff es (Err '[InvalidSessionId, SessionTimedOut, LackOfPrivileges] AuthenticatedUser)
+    embed' = pure . mkSuccess
+    
+    validatePermissions :: AuthenticatedUser -> Eff es (Maybe LackOfPrivileges)
+    validatePermissions (AuthenticatedUser _ _ permissions) = do
       pure $ validatePermissions' (Proxy @ps) permissions
 
     validatePermissions' :: Proxy ps -> M.Permissions -> Maybe LackOfPrivileges
     validatePermissions' _ _ = Nothing
 
-    makeAuthorization :: forall errs. (Name, EmailAddress, M.Permissions, UTCTime) -> Eff es (Err errs (Authorization ps))
-    makeAuthorization (name, emailAddress, permissions, _) = do
+    makeAuthorization :: forall errs. AuthenticatedUser -> Eff es (Err errs (Authorization ps))
+    makeAuthorization (AuthenticatedUser name emailAddress _) = do
       pure $ mkSuccess $ Authorization name emailAddress
 

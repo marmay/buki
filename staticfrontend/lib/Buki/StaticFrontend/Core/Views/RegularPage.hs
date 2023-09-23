@@ -35,6 +35,8 @@ regularPage RegularPage{..} inner = do
         ! HA.rel "stylesheet"
         ! HA.href "/static/css/bootstrap.min.css"
     H.body $ do
+      H.h1 $ H.toHtml regularPageTitle
+      mapM_ (H.h2 . H.toHtml) regularPageSubTitle
       renderMessages regularPageMessages
       inner
   where

@@ -69,6 +69,7 @@ library
                     , Buki.StaticFrontend.Core.AppM
                     , Buki.StaticFrontend.Core.FormValidation
                     , Buki.StaticFrontend.Core.HtmlContent
+                    , Buki.StaticFrontend.User.Registration.API
                     , Buki.StaticFrontend.User.Registration.Controller
                     , Buki.StaticFrontend.User.Registration.Types
                     , Buki.StaticFrontend.User.Registration.Views
@@ -86,6 +87,7 @@ library
                     , buki-backend
                     , blaze-html
                     , containers
+                    , cookie
                     , data-default
                     , effectful-core
                     , exceptions
@@ -100,6 +102,7 @@ library
                     , validation
                     , text
                     , warp
+                    , wai
 
     hs-source-dirs: lib
 
