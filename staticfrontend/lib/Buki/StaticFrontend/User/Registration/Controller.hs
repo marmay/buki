@@ -33,9 +33,9 @@ showUserRegister' :: Maybe RegistrationError -> FormValidationData -> AppM Html
 showUserRegister' registrationError formData = do
   kidsgroups <- fmap (fmap toKeyNamePair) $ runEffects $ BK.runKidsgroupDb BK.listKidsgroups
   case kidsgroups of
-    [] -> liftViewM registerDisabledPage
+    [] -> liftViewM Nothing registerDisabledPage
     kidsgroups' ->
-      liftViewM $ registerPage registrationError kidsgroups' formData
+      liftViewM Nothing $ registerPage registrationError kidsgroups' formData
  where
   toKeyNamePair BK.ListKidsgroup{..} = (toText (toUuid listKidsgroupId), unvalidate listKidsgroupName)
 
@@ -59,7 +59,7 @@ handleUserRegister _ (FormValidation formData (Just registerData))
         , BU.registerDataKidsymbol = unvalidate $ registerDataKidSymbol registerData
         }
 
-  makeResponse (Success _) = liftViewM registerSucceedPage
+  makeResponse (Success _) = liftViewM Nothing registerSucceedPage
   makeResponse (Failure f) = failUserRegister (translateError f) formData
   
   translateError =

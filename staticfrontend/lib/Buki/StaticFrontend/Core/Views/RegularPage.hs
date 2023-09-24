@@ -30,7 +30,8 @@ instance Default RegularPage where
 
 regularPage :: RegularPage -> H.Html -> ViewM H.Html
 regularPage RegularPage{..} inner = do
-  menuBar' <- menuBar Nothing
+  u <- askAuthorizedUser
+  menuBar' <- menuBar u
   pure $ H.html $ do
     H.head $ do
       H.title $ H.toHtml fullTitle

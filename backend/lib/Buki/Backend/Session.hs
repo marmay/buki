@@ -57,7 +57,7 @@ data Session :: Effect where
   MakeSession ::
     EmailAddress ->
     Password ->
-    Session m (Err '[InvalidUserOrPasswordError] M.SessionId)
+    Session m (Err '[InvalidUserOrPasswordError] (M.SessionId, AuthorizedUser))
   DestroyOwnSession ::
     forall auth m. auth `HasPermissions` '[] =>
     auth -> Session m Bool
@@ -105,7 +105,7 @@ dbDestroyOwnSession a = do
     Nothing -> pure False
     Just userId -> dbDestroyUserSessionFor userId
 
-dbMakeSession :: forall es. (Db :> es, Time :> es, User :> es) => EmailAddress -> Password -> NominalDiffTime -> Eff es (Err '[InvalidUserOrPasswordError] M.SessionId)
+dbMakeSession :: forall es. (Db :> es, Time :> es, User :> es) => EmailAddress -> Password -> NominalDiffTime -> Eff es (Err '[InvalidUserOrPasswordError] (M.SessionId, AuthorizedUser))
 dbMakeSession email password sessionLength = do
   authenticateUser email password
     `mapWith` createSession
@@ -123,7 +123,9 @@ dbMakeSession email password sessionLength = do
             , M.session'Permissions = O.toFields permissions
             , M.session'ExpiresAt = O.toFields $ addUTCTime sessionLength now
             }
-    mkSuccess <$> dbInsert1 M.sessionTable sessionRecord M.session'Id
+    sessionId <- dbInsert1 M.sessionTable sessionRecord M.session'Id
+    let authorizedUser = AuthorizedUser userId name email (toAuthPermissions permissions)
+    pure $ mkSuccess (sessionId, authorizedUser)
 
 dbAuthenticate :: forall es. (Db :> es, Time :> es) => M.SessionId -> NominalDiffTime -> Eff es (Err '[InvalidSessionId, SessionTimedOut] AuthenticatedUser)
 dbAuthenticate sessionId sessionLength = do
@@ -191,9 +193,9 @@ dbAuthorize sessionId sessionLength = do
 
   makeAuthorization :: forall errs. AuthenticatedUser -> Eff es (Err errs (Authorization ps))
   makeAuthorization (AuthenticatedUser userId name emailAddress permissions) = do
-    pure $ mkSuccess $ Authorization userId name emailAddress (toAuthPermissions permissions)
+    pure $ mkSuccess $ Authorization $ AuthorizedUser userId name emailAddress (toAuthPermissions permissions)
 
-  toAuthPermissions :: Permissions -> S.Set AuthorizationPermission
-  toAuthPermissions Admin      = S.fromList [minBound .. maxBound]
-  toAuthPermissions Registered = S.empty
-  toAuthPermissions _          = S.empty
+toAuthPermissions :: Permissions -> S.Set AuthorizationPermission
+toAuthPermissions Admin      = S.fromList [minBound .. maxBound]
+toAuthPermissions Registered = S.empty
+toAuthPermissions _          = S.empty

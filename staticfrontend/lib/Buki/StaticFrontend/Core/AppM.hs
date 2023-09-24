@@ -12,6 +12,7 @@ import qualified Buki.Eff.Db as E
 import Buki.StaticFrontend.Core.ViewM (ViewM, ViewContext(..))
 import Control.Monad.Reader (ReaderT, asks, runReader, runReaderT)
 import qualified Buki.Eff.Time as E
+import Buki.Backend.Auth (AuthorizedUser)
 
 newtype AppConfig = AppConfig
   { appConfigDbConnectInfo :: ConnectInfo
@@ -22,9 +23,10 @@ data AppContext = AppContext
   , appDbConn :: Connection
   }
 
-toViewContext :: AppContext -> ViewContext
-toViewContext AppContext{..} = ViewContext
+toViewContext :: Maybe AuthorizedUser -> AppContext -> ViewContext
+toViewContext authorizedUser AppContext{..} = ViewContext
   { viewContextUrlPrefix = appUrlPrefix
+  , viewContextAuthorizedUser = authorizedUser
   }
 
 type AppM = ReaderT AppContext Handler
@@ -59,5 +61,5 @@ runEffects eff = do
   conn <- asks appDbConn
   liftIO $ runEff $ E.runTime $ E.runDb conn eff
 
-liftViewM :: ViewM a -> AppM a
-liftViewM a = asks (runReader a . toViewContext)
+liftViewM :: Maybe AuthorizedUser -> ViewM a -> AppM a
+liftViewM user a = asks (runReader a . toViewContext user)

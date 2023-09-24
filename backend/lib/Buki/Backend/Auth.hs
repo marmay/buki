@@ -1,5 +1,7 @@
+{-# LANGUAGE RecordWildCards #-}
 module Buki.Backend.Auth (
   AuthorizationPermission (..),
+  AuthorizedUser (..),
   Authorization (..),
   FakeAuthorization(..),
   HasPermissions(..),
@@ -32,12 +34,20 @@ class auth `HasPermissions` (ps :: [AuthorizationPermission]) where
   -- | Generate an identifier for the authorization for internal logging purposes.
   authLogIdentifier :: auth -> Proxy ps -> Text
 
+-- | Data about an authorized user.
+data AuthorizedUser = AuthorizedUser
+  { authorizedUserId :: UserId
+  , authorizedUserName :: Name
+  , authorizedUserEmail :: EmailAddress
+  , authorizedUserPermissions :: S.Set AuthorizationPermission
+  }
+
 -- | An authorization is a proof that a user has a given set of roles. Backend
 -- functions require that proof to be passed as an argument. By this, we basically
 -- encode the authorization into the type system and push the handling of authorization
 -- errors out of the business logic towards the API layer or the frontend.
 data Authorization (r :: [AuthorizationPermission]) where
-  Authorization :: UserId -> Name -> EmailAddress -> S.Set AuthorizationPermission -> Authorization r
+  Authorization :: AuthorizedUser -> Authorization r
 
 class (a :: AuthorizationPermission) `IsIn` (as :: [AuthorizationPermission])
 instance {-# OVERLAPS #-} a `IsIn` (a ': as)
@@ -48,8 +58,9 @@ instance '[] `Subset` bs
 instance (a `IsIn` bs, as `Subset` bs) => (a ': as) `Subset` bs
 
 instance forall (ps :: [AuthorizationPermission]) (ps' :: [AuthorizationPermission]). ps' `Subset` ps => Authorization ps `HasPermissions` ps' where
-  authUserId (Authorization userId _ _ _) _ = Just userId
-  authLogIdentifier (Authorization _ name emailAddress _) _ = unName name <> " (" <> unEmailAddress emailAddress <> ")"
+  authUserId (Authorization user) _ = Just $ authorizedUserId user
+  authLogIdentifier (Authorization AuthorizedUser{..}) _ =
+    unName authorizedUserName <> " (" <> unEmailAddress authorizedUserEmail <> ")"
 
 data FakeAuthorization (ps :: [AuthorizationPermission]) where
   FakeAuthorization :: FakeAuthorization ps

@@ -18,10 +18,10 @@ import Data.Text
 import Effectful (liftIO)
 
 showUserLogin :: () -> AppM Html
-showUserLogin () = liftViewM $ loginPage Nothing mempty
+showUserLogin () = liftViewM Nothing $ loginPage Nothing mempty
 
 failUserLogin :: () -> LoginError -> FormValidationData -> AppM Html
-failUserLogin () loginError formValidationData = liftViewM $ loginPage (Just loginError) formValidationData
+failUserLogin () loginError formValidationData = liftViewM Nothing $ loginPage (Just loginError) formValidationData
 
 handleUserLogin :: () -> FormValidation LoginData -> AppM (Headers '[Header "Set-Cookie" Text] Html)
 handleUserLogin () (FormValidation formData Nothing) =
@@ -33,8 +33,8 @@ handleUserLogin () (FormValidation formData (Just LoginData{..})) = do
     tryLogin = runEffects $ runUserDb $ runSessionDb def $
                makeSession loginDataEmail loginDataPassword
 
-    makeResponse (Success sessionId) = do
-      addHeader (encodeSessionId sessionId) <$> liftViewM loginSucceededPage
+    makeResponse (Success (sessionId, authorizedUser)) = do
+      addHeader (encodeSessionId sessionId) <$> liftViewM (Just authorizedUser) loginSucceededPage
     makeResponse (Failure _) =
       noHeader <$> failUserLogin () LoginErrorInvalidCredentials formData
 
