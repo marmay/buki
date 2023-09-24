@@ -5,12 +5,10 @@ module Buki.Backend.User where
 
 import Effectful
 import Effectful.TH
-import Effectful.Error.Static
 
 import Control.Lens ((^.), (.~), (&))
 
 import Data.Text (Text)
-import Data.UUID (UUID)
 import Data.Time (LocalTime)
 
 import Buki.Model.Types.Permissions (Permissions (..))
@@ -30,7 +28,6 @@ import qualified Buki.Model.Tables as M
 import qualified Database.PostgreSQL.Simple.Errors as S
 
 import Control.Arrow (returnA)
-import qualified Database.PostgreSQL.Simple as S
 
 data RegisterData = RegisterData
   { registerDataName :: Name

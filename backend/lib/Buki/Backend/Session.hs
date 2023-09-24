@@ -11,7 +11,7 @@ import Buki.Types
 import Effectful
 import Effectful.TH
 
-import Buki.Eff.Db (Db, dbInsert1, dbMkUuid, dbSelect1, dbUpdate)
+import Buki.Eff.Db (Db, dbInsert1, dbMkUuid, dbSelect1, dbUpdate, dbDelete)
 import Buki.Eff.Time (Time, getTime)
 
 import Data.Default (Default (..))
@@ -47,7 +47,8 @@ instance HasValidatePermissions' ps => HasValidatePermissions' ('UserManagement 
     S.member UserManagement permissions && validatePermissions' (Proxy @ps) permissions
 
 data AuthenticatedUser = AuthenticatedUser
-  { authenticatedUserName :: Name
+  { authenticatedUserId :: M.UserId
+  , authenticatedUserName :: Name
   , authenticatedUserEmail :: EmailAddress
   , authenticatedUserPermissions :: Permissions
   }
@@ -57,6 +58,12 @@ data Session :: Effect where
     EmailAddress ->
     Password ->
     Session m (Err '[InvalidUserOrPasswordError] M.SessionId)
+  DestroyOwnSession ::
+    forall auth m. auth `HasPermissions` '[] =>
+    auth -> Session m Bool
+  DestroyUserSession ::
+    forall auth m. auth `HasPermissions` '[ 'UserManagement ] =>
+    auth -> M.UserId -> Session m Bool
   Authorize ::
     forall (ps :: [AuthorizationPermission]) m. HasValidatePermissions' ps =>
     M.SessionId ->
@@ -83,7 +90,20 @@ runSessionDb ::
   Eff es a
 runSessionDb SessionSettings{..} = interpret $ \_ -> \case
   MakeSession email password -> dbMakeSession email password sessionLength
+  DestroyOwnSession auth -> dbDestroyOwnSession auth
+  DestroyUserSession _ userId -> dbDestroyUserSessionFor userId
   Authorize sessionId -> dbAuthorize sessionId sessionLength
+
+dbDestroyUserSessionFor :: forall es. (Db :> es) => M.UserId -> Eff es Bool
+dbDestroyUserSessionFor userId = do
+  count <- dbDelete $ O.Delete M.sessionTable (\session -> session ^. M.userId .== O.toFields userId) O.rCount
+  pure $ count > 0
+
+dbDestroyOwnSession :: forall auth es. auth `HasPermissions` '[] => (Db :> es) => auth -> Eff es Bool
+dbDestroyOwnSession a = do
+  case authUserId a (Proxy @'[]) of
+    Nothing -> pure False
+    Just userId -> dbDestroyUserSessionFor userId
 
 dbMakeSession :: forall es. (Db :> es, Time :> es, User :> es) => EmailAddress -> Password -> NominalDiffTime -> Eff es (Err '[InvalidUserOrPasswordError] M.SessionId)
 dbMakeSession email password sessionLength = do
@@ -91,6 +111,7 @@ dbMakeSession email password sessionLength = do
     `mapWith` createSession
  where
   createSession (userId, name, permissions) = do
+    _ <- dbDestroyUserSessionFor userId
     uuid <- M.Id <$> dbMkUuid
     now <- getTime
     let sessionRecord =
@@ -111,7 +132,7 @@ dbAuthenticate sessionId sessionLength = do
     `processWith` updateSession
     `mapWithPure` makeAuthenticatedUser
  where
-  selectSession :: Eff es (Err '[InvalidSessionId, SessionTimedOut] (Text, Text, Permissions, UTCTime))
+  selectSession :: Eff es (Err '[InvalidSessionId, SessionTimedOut] (M.UserId, Text, Text, Permissions, UTCTime))
   selectSession =
     constMapErrors InvalidSessionId
       <$> dbSelect1
@@ -120,20 +141,21 @@ dbAuthenticate sessionId sessionLength = do
             O.restrict -< M.session'Id session O..== O.toFields sessionId
             returnA
               -<
-                ( session ^. M.name
+                ( session ^. M.id
+                , session ^. M.name
                 , session ^. M.email
                 , session ^. M.permissions
                 , session ^. M.expiresAt
                 )
         )
 
-  validateSession (_, _, _, expiresAt) = do
+  validateSession (_, _, _, _, expiresAt) = do
     now <- getTime
     if now > expiresAt
       then pure $ Just SessionTimedOut
       else pure Nothing
 
-  updateSession (name, emailAddress, permissions, expiresAt) = do
+  updateSession (_, name, emailAddress, permissions, expiresAt) = do
     _ <-
       dbUpdate
         O.Update
@@ -148,8 +170,8 @@ dbAuthenticate sessionId sessionLength = do
           }
     pure $ mkSuccess (name, emailAddress, permissions)
 
-  makeAuthenticatedUser (name, emailAddress, permissions, _) =
-    AuthenticatedUser (forceValidate name) (forceValidate emailAddress) permissions
+  makeAuthenticatedUser (userId, name, emailAddress, permissions, _) =
+    AuthenticatedUser userId (forceValidate name) (forceValidate emailAddress) permissions
 
 dbAuthorize :: forall ps es. (Db :> es, Time :> es, HasValidatePermissions' ps) => M.SessionId -> NominalDiffTime -> Eff es (Err '[InvalidSessionId, SessionTimedOut, LackOfPrivileges] (Authorization ps))
 dbAuthorize sessionId sessionLength = do
@@ -162,14 +184,14 @@ dbAuthorize sessionId sessionLength = do
   embed' = pure . mkSuccess
 
   validatePermissions :: AuthenticatedUser -> Eff es (Maybe LackOfPrivileges)
-  validatePermissions (AuthenticatedUser _ _ permissions) = do
+  validatePermissions (AuthenticatedUser _ _ _ permissions) = do
     if validatePermissions' (Proxy @ps) (toAuthPermissions permissions)
       then pure Nothing
       else pure $ Just LackOfPrivileges
 
   makeAuthorization :: forall errs. AuthenticatedUser -> Eff es (Err errs (Authorization ps))
-  makeAuthorization (AuthenticatedUser name emailAddress permissions) = do
-    pure $ mkSuccess $ Authorization name emailAddress (toAuthPermissions permissions)
+  makeAuthorization (AuthenticatedUser userId name emailAddress permissions) = do
+    pure $ mkSuccess $ Authorization userId name emailAddress (toAuthPermissions permissions)
 
   toAuthPermissions :: Permissions -> S.Set AuthorizationPermission
   toAuthPermissions Admin      = S.fromList [minBound .. maxBound]

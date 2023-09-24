@@ -5,13 +5,12 @@ import Servant.API
 import Servant.Server
 import Buki.StaticFrontend.Core.AppM
 
+import Buki.StaticFrontend.User.Server
 import Buki.StaticFrontend.Static.API
 import Buki.StaticFrontend.Static.Server
-import Buki.StaticFrontend.User.Registration.API
-import Buki.StaticFrontend.User.Registration.Controller
 
 type ServerAPI = (
-         UserRegistrationAPI
+         UserAPI
     :<|> StaticAPI
     )
 
@@ -19,4 +18,4 @@ serverAPI :: Proxy ServerAPI
 serverAPI = Proxy
 
 server :: ServerT ServerAPI AppM
-server = userRegistrationServer :<|> staticServer
+server = userServer :<|> staticServer

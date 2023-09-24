@@ -65,16 +65,26 @@ library
 
     exposed-modules:  Buki.StaticFrontend.Core.Views.Forms
                     , Buki.StaticFrontend.Core.Views.Message
+                    , Buki.StaticFrontend.Core.Views.Menu
                     , Buki.StaticFrontend.Core.Views.RegularPage
                     , Buki.StaticFrontend.Core.AppM
+                    , Buki.StaticFrontend.Core.Auth
                     , Buki.StaticFrontend.Core.FormValidation
                     , Buki.StaticFrontend.Core.HtmlContent
+                    , Buki.StaticFrontend.Core.Preludes.API
+                    , Buki.StaticFrontend.Core.ViewM
                     , Buki.StaticFrontend.Static.API
                     , Buki.StaticFrontend.Static.Server
+                    , Buki.StaticFrontend.Server
                     , Buki.StaticFrontend.User.Registration.API
                     , Buki.StaticFrontend.User.Registration.Controller
                     , Buki.StaticFrontend.User.Registration.Types
                     , Buki.StaticFrontend.User.Registration.Views
+                    , Buki.StaticFrontend.User.Login.API
+                    , Buki.StaticFrontend.User.Login.Controller
+                    , Buki.StaticFrontend.User.Login.Types
+                    , Buki.StaticFrontend.User.Login.Views
+                    , Buki.StaticFrontend.User.Server
                     , DevelMain
 
     default-extensions: TemplateHaskell
@@ -87,6 +97,7 @@ library
 
     build-depends:    base
                     , buki-backend
+                    , bytestring
                     , blaze-html
                     , containers
                     , cookie
@@ -105,6 +116,7 @@ library
                     , text
                     , warp
                     , wai
+                    , wai-logger
 
     hs-source-dirs: lib
 

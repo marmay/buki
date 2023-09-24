@@ -15,8 +15,9 @@ formField :: Text -> Text -> FormValidationData -> (Maybe Text -> H.Html) -> H.H
 formField field label m inner = do
   H.div ! HA.class_ "form-group" $ do
     H.label ! HA.for (H.toValue field) $ H.toHtml label
-    inner (formValidationValueOf field m)
-    mapM_ (\err -> H.div ! HA.class_ "invalid-feedback" $ H.toHtml err) (formValidationErrorsOf field m)
+    H.div ! HA.class_ "input-group has-validation" $ do
+      inner (formValidationValueOf field m) ! HA.class_ ("form-control" <> if null (formValidationErrorsOf field m) then "" else " is-invalid")
+      mapM_ (\err -> H.div ! HA.class_ "invalid-feedback" $ H.toHtml err) (formValidationErrorsOf field m)
 
 textField :: Text -> Text -> Text -> FormValidationData -> H.Html
 textField field label placeholder m =

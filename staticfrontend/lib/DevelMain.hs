@@ -1,7 +1,7 @@
-module DevelMain (update) where
+module DevelMain (main, update) where
 
 import Servant
-import Network.Wai.Handler.Warp (run)
+import Network.Wai.Handler.Warp (setPort, defaultSettings, setLogger, runSettings)
 import Buki.StaticFrontend.Core.AppM (AppConfig(..), withAppContext, AppContext, runAppM)
 import Database.PostgreSQL.Simple (ConnectInfo(..))
 import Buki.StaticFrontend.Server (serverAPI, server)
@@ -9,8 +9,10 @@ import Buki.StaticFrontend.Server (serverAPI, server)
 import Rapid
 import Servant.Server.Experimental.Auth
 import Network.Wai (Request)
+import Network.Wai.Logger (withStdoutLogger)
 import Buki.Backend.Auth (Authorization)
 import Buki.StaticFrontend.Core.Auth
+import Data.Function ((&))
 
 appConfig :: AppConfig
 appConfig = AppConfig
@@ -28,20 +30,25 @@ appConfig = AppConfig
 -- polymorphism here, but for now, this should work.
 type AuthHandlers = '[ AuthHandler Request ()
                      , AuthHandler Request (Maybe (Authorization '[]))
+                     , AuthHandler Request (Authorization '[])
                      ]
 
 genAuthServerCtx :: AppContext -> Context AuthHandlers
 genAuthServerCtx ctx =
      authReqNoUser ctx
   :. authReqOptionalUser ctx
+  :. authReqAuthorizedUser ctx
   :. EmptyContext
 
 main :: IO ()
 main = do
   putStrLn "Starting server on port 8080"
   withAppContext appConfig $ \ctx -> do
-    run 8080 $ serveWithContext serverAPI (genAuthServerCtx ctx) $
-      hoistServerWithContext serverAPI (Proxy @AuthHandlers) (runAppM ctx) server
+    withStdoutLogger $ \logger -> do
+      let settings = defaultSettings & setPort 8080
+                                     & setLogger logger
+      runSettings settings $ serveWithContext serverAPI (genAuthServerCtx ctx) $
+        hoistServerWithContext serverAPI (Proxy @AuthHandlers) (runAppM ctx) server
 
 update :: IO (Rapid String)
 update =

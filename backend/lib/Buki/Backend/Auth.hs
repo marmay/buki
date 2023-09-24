@@ -12,6 +12,7 @@ import qualified Data.Set as S
 
 import Buki.Types.Name (Name (..))
 import Buki.Types.EmailAddress (EmailAddress (..))
+import Buki.Model.Types (UserId)
 
 -- | Users are having roles. Each role grants a set of permissions.
 -- Some functions require users to have particular permissions.
@@ -25,6 +26,9 @@ data AuthorizationPermission
 -- The type class is also implemented by for testing purposes in order to fake any required
 -- set of permissions without actually having to have a valid user.
 class auth `HasPermissions` (ps :: [AuthorizationPermission]) where
+  -- | Gets the user id (required to perform self-management operations).
+  authUserId :: auth -> Proxy ps -> Maybe UserId
+  
   -- | Generate an identifier for the authorization for internal logging purposes.
   authLogIdentifier :: auth -> Proxy ps -> Text
 
@@ -33,7 +37,7 @@ class auth `HasPermissions` (ps :: [AuthorizationPermission]) where
 -- encode the authorization into the type system and push the handling of authorization
 -- errors out of the business logic towards the API layer or the frontend.
 data Authorization (r :: [AuthorizationPermission]) where
-  Authorization :: Name -> EmailAddress -> S.Set AuthorizationPermission -> Authorization r
+  Authorization :: UserId -> Name -> EmailAddress -> S.Set AuthorizationPermission -> Authorization r
 
 class (a :: AuthorizationPermission) `IsIn` (as :: [AuthorizationPermission])
 instance {-# OVERLAPS #-} a `IsIn` (a ': as)
@@ -44,11 +48,13 @@ instance '[] `Subset` bs
 instance (a `IsIn` bs, as `Subset` bs) => (a ': as) `Subset` bs
 
 instance forall (ps :: [AuthorizationPermission]) (ps' :: [AuthorizationPermission]). ps' `Subset` ps => Authorization ps `HasPermissions` ps' where
-  authLogIdentifier (Authorization name emailAddress _) _ = unName name <> " (" <> unEmailAddress emailAddress <> ")"
+  authUserId (Authorization userId _ _ _) _ = Just userId
+  authLogIdentifier (Authorization _ name emailAddress _) _ = unName name <> " (" <> unEmailAddress emailAddress <> ")"
 
 data FakeAuthorization (ps :: [AuthorizationPermission]) where
   FakeAuthorization :: FakeAuthorization ps
 instance forall (ps :: [AuthorizationPermission]) (ps' :: [AuthorizationPermission]). ps' `Subset` ps => FakeAuthorization ps `HasPermissions` ps' where
+  authUserId FakeAuthorization _ = Nothing
   authLogIdentifier _ _ = "fake authorization"
 
 -- | Creates an authorization out of thin air. Provided for testing purposes only.

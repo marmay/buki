@@ -9,7 +9,7 @@ import Buki.StaticFrontend.User.Registration.API (UserRegistrationAPI, ShowUserR
 import Data.Proxy
 
 menuBar :: Maybe (Authorization ps) -> ViewM H.Html
-menuBar (Just (Authorization name emailAddress permissions)) = pure $ do
+menuBar (Just (Authorization _ name emailAddress permissions)) = pure $ do
   H.div $ do
     H.p $ do
       H.toHtml (H.text "Logged in as")
