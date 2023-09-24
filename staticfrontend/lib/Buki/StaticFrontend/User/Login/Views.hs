@@ -10,7 +10,6 @@ import Buki.StaticFrontend.Core.Views.Message
 import Buki.StaticFrontend.Core.Views.RegularPage
 
 import Data.Default (def)
-import Data.Text (Text)
 import Data.Proxy (Proxy(..))
 
 import Buki.StaticFrontend.User.Login.API
@@ -29,6 +28,14 @@ loginPage loginError formValidationData = do
 loginSucceededPage :: ViewM H.Html
 loginSucceededPage = regularPage def {regularPageSubTitle = Just "Login erfolgreich"} $ do
   H.p "Sie sind nun eingeloggt."
+
+logoutSucceededPage :: Bool -> ViewM H.Html
+logoutSucceededPage sessionDestroyed =
+  regularPage def {regularPageSubTitle = Just "Logout erfolgreich"} $ do
+    H.p "Sie sind nun ausgeloggt."
+    if sessionDestroyed
+      then H.p "Ihre Sitzung wurde beendet."
+      else H.p "Es wurde keine aktive Sitzung für Ihren Nutzer gefunden."
 
 toMessages :: Maybe LoginError -> [Message]
 toMessages Nothing = []

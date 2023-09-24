@@ -3,7 +3,7 @@
 module Buki.StaticFrontend.User.Login.Controller where
 
 import Buki.StaticFrontend.Core.AppM
-import Buki.StaticFrontend.User.Login.Views (loginPage, loginSucceededPage)
+import Buki.StaticFrontend.User.Login.Views (loginPage, loginSucceededPage, logoutSucceededPage)
 import Buki.StaticFrontend.User.Login.Types (LoginError(..), LoginData(..))
 import Buki.StaticFrontend.Core.Preludes.API
 import Buki.Backend.User (runUserDb)
@@ -42,7 +42,14 @@ handleUserLogin () (FormValidation formData (Just LoginData{..})) = do
     encodeSessionId sessionId = pack $ show sessionId
 
 handleUserLogout :: Authorization '[] -> AppM Html
-handleUserLogout _ = undefined -- liftViewM logoutSucceededPage
+handleUserLogout auth = do
+  logout >>= makeResponse
+  where
+    logout = runEffects $ runUserDb $ runSessionDb def $
+             destroyOwnSession auth
+    makeResponse sessionDestroyed =
+      liftViewM Nothing $ logoutSucceededPage sessionDestroyed
+    
 
 userLoginServer :: ServerT UserLoginAPI AppM
 userLoginServer = showUserLogin :<|> handleUserLogin :<|> handleUserLogout
