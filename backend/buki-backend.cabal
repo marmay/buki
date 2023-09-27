@@ -72,6 +72,8 @@ library
                     , effectful-plugin
                     , exceptions
                     , lens
+                    , log-base
+                    , log-effectful
                     , mtl
                     , opaleye >= 0.9.6.1
                     , postgresql-simple
@@ -99,7 +101,11 @@ test-suite buki-test
     default-language: GHC2021
 
     -- Modules included in this executable, other than Main.
-    other-modules:    Buki.Test.Backend.Kidsgroup
+    other-modules:    Buki.Test.Backend.Dummy
+                    , Buki.Test.Backend.Dummy.Common
+                    , Buki.Test.Backend.Dummy.Kidsgroup
+                    , Buki.Test.Backend.Dummy.User
+                    , Buki.Test.Backend.Kidsgroup
                     , Buki.Test.Backend.Session
                     , Buki.Test.Backend.User
                     , Buki.Test.Validation
@@ -128,6 +134,7 @@ test-suite buki-test
     build-depends:    base
                     , buki-backend
                     , bytestring
+                    , containers
                     , directory
                     , effectful-core
                     , exceptions

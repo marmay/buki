@@ -40,7 +40,7 @@ data AuthorizedUser = AuthorizedUser
   , authorizedUserName :: Name
   , authorizedUserEmail :: EmailAddress
   , authorizedUserPermissions :: S.Set AuthorizationPermission
-  }
+  } deriving (Eq, Show)
 
 -- | An authorization is a proof that a user has a given set of roles. Backend
 -- functions require that proof to be passed as an argument. By this, we basically
@@ -48,6 +48,7 @@ data AuthorizedUser = AuthorizedUser
 -- errors out of the business logic towards the API layer or the frontend.
 data Authorization (r :: [AuthorizationPermission]) where
   Authorization :: AuthorizedUser -> Authorization r
+  deriving (Eq, Show)
 
 class (a :: AuthorizationPermission) `IsIn` (as :: [AuthorizationPermission])
 instance {-# OVERLAPS #-} a `IsIn` (a ': as)

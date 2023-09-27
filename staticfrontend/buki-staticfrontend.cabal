@@ -84,6 +84,9 @@ library
                     , Buki.StaticFrontend.User.Login.Controller
                     , Buki.StaticFrontend.User.Login.Types
                     , Buki.StaticFrontend.User.Login.Views
+                    , Buki.StaticFrontend.Welcome.API
+                    , Buki.StaticFrontend.Welcome.Controller
+                    , Buki.StaticFrontend.Welcome.Views
                     , Buki.StaticFrontend.User.Server
                     , DevelMain
 

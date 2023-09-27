@@ -14,6 +14,7 @@ import Buki.StaticFrontend.Core.Views.Message
 import Data.Default
 import Buki.StaticFrontend.Core.Views.Menu
 import Buki.StaticFrontend.Core.ViewM
+import Data.Maybe (fromMaybe)
 
 data RegularPage = RegularPage
   { regularPageTitle :: Text
@@ -32,20 +33,27 @@ regularPage :: RegularPage -> H.Html -> ViewM H.Html
 regularPage RegularPage{..} inner = do
   u <- askAuthorizedUser
   menuBar' <- menuBar u
+  bottomBar' <- bottomBar
   pure $ H.html $ do
     H.head $ do
       H.title $ H.toHtml fullTitle
       H.link
         ! HA.rel "stylesheet"
         ! HA.href "/static/css/bootstrap.min.css"
+      H.link
+        ! HA.rel "stylesheet"
+        ! HA.href "/static/css/buki.css"
     H.body $ do
-      H.h1 "Menu: "
-      menuBar'
-      H.h1 $ H.toHtml regularPageTitle
-      mapM_ (H.h2 . H.toHtml) regularPageSubTitle
-      renderMessages regularPageMessages
-      inner
+      H.div ! HA.class_ "background" $ do
+        H.div ! HA.class_ "content container py-2" $ do
+          menuBar'
+          H.div ! HA.class_ "mx-auto px-xs-1 px-sm-3 px-md-5 py-4 inner_content" $ do
+            H.h1 $ H.toHtml header
+            renderMessages regularPageMessages
+            inner
+          bottomBar'
   where
     fullTitle = case regularPageSubTitle of
       Nothing -> regularPageTitle
       Just subTitle -> regularPageTitle <> " - " <> subTitle
+    header = fromMaybe regularPageTitle regularPageSubTitle

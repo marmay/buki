@@ -1,0 +1,108 @@
+.book {
+  display: inline-block;
+  width: 248px;
+  padding: 20px;
+  border: 1px solid black;
+}
+
+.book_cover {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  height: 196px;
+  width: 100%;
+  text-align: center;
+}
+
+.book_cover img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.book_title {
+  font-size: 14pt;
+  font-weight: bold;
+}
+
+.book_subtitle {
+  font-size: 11pt;
+  font-weight: bold;
+}
+
+.book_author {
+  font-size: 11pt;
+  font-style: italic;
+}
+
+.book_commands {
+  float: right;
+}
+
+.new_user_kids_group {
+  margin: 10px;
+}
+
+a {
+  color: #084298;
+}
+
+html {
+  height: 100%;
+}
+
+.background {
+  color: #031633;
+  background: linear-gradient(130deg, #cfe2ff44 0%, #cfe2ff88 38%, #cfe2ff44 100%);
+}
+
+.content {
+  border-radius: 4px;
+}
+
+.inner_content {
+}
+
+h1 {
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+  font-weight: 300;
+  border-bottom: 1px solid;
+  padding-bottom: 0.25rem;
+}
+
+h1 .command_btn_cnt {
+  float: right;
+}
+
+thead td {
+  font-weight: bold;
+  padding: 10px;
+}
+
+.navbar {
+  border-bottom: 2px solid #3d8bfd;
+}
+
+.navbar-brand {
+  font-size: 14pt;
+}
+
+.navbar a {
+  color: #052c65;
+}
+
+.bottom_bar {
+  border-top: 2px solid #3d8bfd;
+}
+
+.bottom_bar a {
+  color: #052c65;
+}
+
+.btn-primary {
+  background-color: #3d8bfd;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(0, 0, 0, 0.5)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E")
+}

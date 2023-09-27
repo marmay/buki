@@ -48,7 +48,7 @@ CREATE TABLE sessions (
     name TEXT NOT NULL,
     email TEXT NOT NULL,
     permissions permissions NOT NULL,
-    expires_at TIMESTAMP NOT NULL
+    expires_at TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE loans (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,

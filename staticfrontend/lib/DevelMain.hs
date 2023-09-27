@@ -10,7 +10,7 @@ import Rapid
 import Servant.Server.Experimental.Auth
 import Network.Wai (Request)
 import Network.Wai.Logger (withStdoutLogger)
-import Buki.Backend.Auth (Authorization)
+import Buki.Backend.Auth (Authorization, AuthorizedUser)
 import Buki.StaticFrontend.Core.Auth
 import Data.Function ((&))
 
@@ -29,7 +29,7 @@ appConfig = AppConfig
 -- required by the app here. It would be nice, if we would have some support for
 -- polymorphism here, but for now, this should work.
 type AuthHandlers = '[ AuthHandler Request ()
-                     , AuthHandler Request (Maybe (Authorization '[]))
+                     , AuthHandler Request (Maybe AuthorizedUser)
                      , AuthHandler Request (Authorization '[])
                      ]
 

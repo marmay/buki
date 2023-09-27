@@ -31,14 +31,35 @@ instance {-# OVERLAPPABLE #-} forall (r :: Type) (rs :: [Type]). r `In` (r ': rs
 instance {-# OVERLAPS #-} forall (r :: Type) (s :: Type) (rs :: [Type]). r `In` rs => r `In` (s ': rs) where
   index _ _ = 1 + index (Proxy @r) (Proxy @rs)
 
+-- This is infrastructure for embedding one union into another. A list of types @rs@ is
+-- embeddable into another list @ss@, if all types in @rs@ are also in @ss@. In order to
+-- embed @rs@ into @ss@, we need to know the index of each element @r@ of @rs@ in @ss@.
+-- We can build this map recursively:
+--
+-- First, the empty list is trivially embeddable into any list and the map is empty.
+-- Second, if we have a single element @r@ (@rs = '[r]@) and @r@ is also in @ss@, then
+-- the map is given by @M.fromList [(0, index r ss)]@.
+-- Finally, if we have a list @r ': rs@ with @r `In` ss@ and @rs `Embedable` ss@, then
+-- we can take the map for @rs@ and @ss@ and increment all keys by one. Then we can insert
+-- the mapping for @r@ as above.
+--
+-- Instead of incrementing all keys by one, we can also pass an index that stores the offset
+-- throughout the call chain. `embedMap'` is the version with the offset parameter, `embedMap`
+-- sets that parameter to 0.
 class rs `Embedable` ss where
-  embedMap :: Proxy rs -> Proxy ss -> Map Word Word
+  embedMap' :: Proxy rs -> Proxy ss -> Word -> Map Word Word
 
 instance forall (r :: Type) (rs :: [Type]) (ss :: [Type]). (r `In` ss, rs `Embedable` ss)
   => (r ': rs) `Embedable` ss where
-  embedMap _ _ = Map.insert (index (Proxy @r) (Proxy @ss)) 0 (embedMap (Proxy @rs) (Proxy @ss))
+  embedMap' _ _ offset =
+    Map.insert offset (index (Proxy @r) (Proxy @ss))
+               (embedMap' (Proxy @rs) (Proxy @ss) (offset + 1))
 instance forall (ss :: [Type]). '[] `Embedable` ss where
-  embedMap _ _ = Map.empty
+  embedMap' _ _ _ = Map.empty
+
+embedMap :: forall (rs :: [Type]) (ss :: [Type]). (rs `Embedable` ss) =>
+  Proxy rs -> Proxy ss -> Map Word Word
+embedMap _ _ = embedMap' (Proxy @rs) (Proxy @ss) 0
 
 type family AllIn (rs :: [Type]) (ss :: [Type]) :: Constraint where
   AllIn '[] ss = ()
@@ -94,3 +115,14 @@ handle (Left u) f = case project' u of
 doHandling :: Either (Union '[]) a -> a
 doHandling (Right a) = a
 doHandling (Left _) = error "Please only use doHandling as part of a list of error handling functions"
+
+type family AllShow (rs :: [Type]) :: Constraint where
+  AllShow '[] = ()
+  AllShow (r ': rs) = (Show r, AllShow rs)
+
+instance Show (Union '[]) where
+  show (Union _ _) = "<Empty Union>"
+
+instance (Show r, Show (Union rs)) => Show (Union (r ': rs)) where
+  show (Union 0 r) = "Union: " <> show (unsafeCoerce r :: r)
+  show (Union i r) = show (Union (i - 1) r :: Union rs)

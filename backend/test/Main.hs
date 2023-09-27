@@ -6,7 +6,9 @@ import Test.Hspec
 
 import Buki.Test.Backend.Kidsgroup
 import Buki.Test.Backend.User
+import Buki.Test.Backend.Session
 import Buki.Test.Validation
+import Buki.Test.Union (unionTests)
 import Buki.TestUtil.Psql (withDatabase)
 
 main :: IO ()
@@ -19,4 +21,6 @@ main = hspec $ do
   aroundAll withDatabase $ do
     backendKidsgroupTestTree
     backendUserTestTree
+    backendSessionTestTree
   validationTypesTestTree
+  unionTests

@@ -16,6 +16,7 @@ import Buki.Backend.Auth (Authorization)
 import Buki.Model.Types (SessionId)
 import Data.Text
 import Effectful (liftIO)
+import Buki.Model.Types.Id (toUuid)
 
 showUserLogin :: () -> AppM Html
 showUserLogin () = liftViewM Nothing $ loginPage Nothing mempty
@@ -39,7 +40,7 @@ handleUserLogin () (FormValidation formData (Just LoginData{..})) = do
       noHeader <$> failUserLogin () LoginErrorInvalidCredentials formData
 
     encodeSessionId :: SessionId -> Text
-    encodeSessionId sessionId = pack $ show sessionId
+    encodeSessionId sessionId = pack $ "session_token=" <> show (toUuid sessionId) <> "; Path=/"
 
 handleUserLogout :: Authorization '[] -> AppM Html
 handleUserLogout auth = do
@@ -50,6 +51,5 @@ handleUserLogout auth = do
     makeResponse sessionDestroyed =
       liftViewM Nothing $ logoutSucceededPage sessionDestroyed
     
-
 userLoginServer :: ServerT UserLoginAPI AppM
 userLoginServer = showUserLogin :<|> handleUserLogin :<|> handleUserLogout

@@ -19,7 +19,7 @@ type HandleUserLoginRoute =
 type HandleUserLogoutRoute =
   AuthProtect (ReqAuthorizedUser '[])
   :> "user" :> "logout"
-  :> Post '[HTML] Html
+  :> Get '[HTML] Html
 
 type UserLoginAPI =
        ShowUserLoginRoute

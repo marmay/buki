@@ -20,13 +20,14 @@ import Buki.Backend.Auth
 import Data.UUID (fromASCIIBytes)
 import Data.Default (def)
 import Buki.Backend.User (runUserDb)
+import Effectful (liftIO)
 
 data ReqNoUser
 data ReqOptionalUser
 data ReqAuthorizedUser (permissions :: [AuthorizationPermission])
 
 type instance AuthServerData (AuthProtect ReqNoUser) = ()
-type instance AuthServerData (AuthProtect ReqOptionalUser) = Maybe (Authorization '[])
+type instance AuthServerData (AuthProtect ReqOptionalUser) = Maybe AuthorizedUser
 type instance AuthServerData (AuthProtect (ReqAuthorizedUser permissions)) =
   Authorization permissions
 
@@ -37,21 +38,30 @@ authReqNoUser ctx = mkAuthHandler $ \req -> runAppM ctx $ do
     Nothing -> pure ()
     Just _ -> undefined -- throwErr $ Err 403 "You must not be logged in to access this resource."
 
-authReqOptionalUser :: AppContext -> AuthHandler Request (Maybe (Authorization '[]))
-authReqOptionalUser ctx = mkAuthHandler $ \req -> runAppM ctx $ authTryUser @'[] req
+authReqOptionalUser :: AppContext -> AuthHandler Request (Maybe AuthorizedUser)
+authReqOptionalUser ctx = mkAuthHandler $ \req -> runAppM ctx $ do
+  u <- authTryUser @'[] req
+  pure $ u >>= unwrap
+  where
+    unwrap :: Authorization '[] -> Maybe AuthorizedUser
+    unwrap (Authorization user) = Just user
 
 authReqAuthorizedUser :: forall (permissions :: [AuthorizationPermission]). HasValidatePermissions' permissions => AppContext -> AuthHandler Request (Authorization permissions)
 authReqAuthorizedUser ctx = mkAuthHandler $ \req -> runAppM ctx $ do
+  liftIO $ putStrLn $ "Trying to authorize user with request " <> show req <> " ;;; " <> show (requestHeaders req)
   user <- authTryUser @permissions req
+  liftIO $ putStrLn $ "User: " <> show user
   case user of
     Nothing -> undefined -- throwErr $ Err 403 "You must be logged in to access this resource."
     Just user' -> pure user'
 
 authTryUser :: forall (permissions :: [AuthorizationPermission]). HasValidatePermissions' permissions => Request -> AppM (Maybe (Authorization permissions))
 authTryUser req = do
+  liftIO $ putStrLn $ "Trying to authorize user with request " <> show req <> " ;;; " <> show (requestHeaders req)
   case extractSessionToken req of
     Nothing -> pure Nothing
     Just sessionToken -> do
+      liftIO $ putStrLn $ "Trying to authorize user with session token " <> show sessionToken
       mUser <- runEffects $ runUserDb $ runSessionDb def $ authorize sessionToken
       case mUser of
         (B.Failure _) -> pure Nothing
