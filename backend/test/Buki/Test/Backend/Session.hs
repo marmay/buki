@@ -73,3 +73,25 @@ backendSessionTestTree = do
           >>= assertSuccess
         authorize @'[ 'UserManagement ] sessionId
           >>= assertError LackOfPrivileges
+
+    it "Destroying own session works" $ \conn -> do
+      run conn $ do
+        _ <- D.makeTestUser
+        (sessionId, _) <- makeSession (registerDataEmail D.testUser) (registerDataPassword D.testUser)
+          >>= assertSuccess
+        auth <- authorize @'[] sessionId
+          >>= assertSuccess
+        v <- destroyOwnSession auth
+        liftIO $ v `shouldBe` True
+        authorize @'[] sessionId
+          >>= assertError InvalidSessionId
+
+    it "Destroying foreign session works" $ \conn -> do
+      run conn $ do
+        (_, userId) <- D.makeTestUser
+        (sessionId, _) <- makeSession (registerDataEmail D.testUser) (registerDataPassword D.testUser)
+          >>= assertSuccess
+        v <- destroyUserSession (fakeAuthorization @'[ 'UserManagement ]) userId
+        liftIO $ v `shouldBe` True
+        authorize @'[] sessionId
+          >>= assertError InvalidSessionId
