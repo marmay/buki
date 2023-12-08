@@ -9,13 +9,15 @@ CREATE TABLE places (
 CREATE TABLE books (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     title TEXT NOT NULL,
+    author TEXT DEFAULT NULL,
     subtitle TEXT DEFAULT NULL,
     blurb TEXT DEFAULT NULL,
     isbn TEXT DEFAULT NULL,
     recommended BOOLEAN DEFAULT false NOT NULL,
     cover TEXT DEFAULT NULL,
-    author TEXT DEFAULT NULL,
     cached_cover TEXT DEFAULT NULL
+    UNIQUE (title, author)
+    UNIQUE (isbn)
 );
 CREATE TABLE book_copies (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,

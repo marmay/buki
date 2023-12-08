@@ -5,6 +5,7 @@ module Buki.Validation (
   validateWithPath,
   assertValid,
   forceValidate,
+  maybeToValidate
 ) where
 
 -- \^ The validation module serves a simple purpose: It validates (or parses) a raw,
@@ -17,10 +18,10 @@ module Buki.Validation (
 -- records, as well as some helper functions.
 
 import Data.Text (Text)
+import Data.UUID (UUID, fromText, toText)
 import Data.Validation (Validation (..))
 
 import Data.Maybe (mapMaybe)
-import Data.UUID (UUID, fromText, toText)
 
 -- | A validation error contains a path to the value that failed validation and
 -- a message that describes the error. For simple values, the path will be empty.
@@ -112,5 +113,11 @@ maybeToValidate e f u = case f u of
   Nothing -> Failure [e]
 
 instance Validate Text UUID where
-  validate = maybeToValidate (ValidationError [] "Could not parse UUID!") Data.UUID.fromText
-  unvalidate = Data.UUID.toText
+  validate = maybeToValidate
+    (ValidationError { validationErrorPath = []
+                     , validationErrorMessage = "Could not parse UUID!"
+                     })
+    fromText
+
+  unvalidate :: UUID -> Text
+  unvalidate = toText

@@ -8,6 +8,7 @@ module Buki.Model.Types.BookTagLink
 
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 
+import Buki.Model.SqlType (SqlType)
 import Buki.Model.TH
 import Buki.Model.Types.Book
 import Buki.Model.Types.Id

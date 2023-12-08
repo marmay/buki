@@ -9,8 +9,12 @@ import Data.Text qualified as T
 import Data.Profunctor.Product.Default qualified as O
 import Opaleye qualified as O
 
+import Buki.Model.SqlType (SqlType)
+
 newtype EmailAddress = EmailAddress {unEmailAddress :: Text}
   deriving (Eq, Show)
+
+type instance SqlType EmailAddress = O.Field O.SqlText
 
 instance Validate Text EmailAddress where
   validate =

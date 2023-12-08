@@ -7,6 +7,7 @@ import Opaleye ( DefaultFromField(..), FromField, ToFields, Field )
 import Opaleye.Internal.Inferrable ( Inferrable(Inferrable) )
 import Opaleye.Experimental.Enum ( EnumMapper(..), enumMapper )
 import Data.Profunctor.Product.Default (Default(..))
+import Buki.Model.SqlType (SqlType)
 
 data SqlLoanState
 data LoanState
@@ -33,6 +34,9 @@ sqlLoanStateMapper :: EnumMapper SqlLoanState LoanState
 sqlLoanStateMapper = enumMapper "loan_state"
                                    fromSqlLoanStateString
                                    toSqlLoanStateString
+
+type instance SqlType LoanState = Field SqlLoanState
+
 instance DefaultFromField SqlLoanState LoanState where
   defaultFromField = enumFromField sqlLoanStateMapper
 instance permissions ~ LoanState

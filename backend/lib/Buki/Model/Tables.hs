@@ -16,8 +16,8 @@ module Buki.Model.Tables (
 import Buki.Model.Types
 import Buki.Model.TH
 
-makeDbTable "places" ''Place
 makeDbTable "books" ''Book
+makeDbTable "places" ''Place
 makeDbTable "book_copies" ''BookCopy
 makeDbTable "users" ''User
 makeDbTable "kidsgroups" ''Kidsgroup

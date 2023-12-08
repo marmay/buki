@@ -19,7 +19,8 @@ import Buki.Model.Types (UserId)
 -- | Users are having roles. Each role grants a set of permissions.
 -- Some functions require users to have particular permissions.
 data AuthorizationPermission
-  = UserManagement
+  = BookManagement
+  | UserManagement
   deriving (Eq, Ord, Enum, Bounded, Show)
 
 -- | Constraint that checks for a prove that the user has a particular set of permissions.

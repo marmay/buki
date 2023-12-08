@@ -9,6 +9,7 @@ module Buki.Model.Types.UserKidsgroupLink
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 import Data.Text (Text)
 
+import Buki.Model.SqlType (SqlType)
 import Buki.Model.TH
 import Buki.Model.Types.Id
 import Buki.Model.Types.Kidsgroup

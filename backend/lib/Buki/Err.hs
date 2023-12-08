@@ -3,7 +3,7 @@
 
 -- | Super simplistic checked exceptions that I may replace with a off-the-shelf
 -- library later on.
-module Buki.Err (module Buki.Union, Err (..), mkFailure, mkSuccess, In (..), Embedable (..), embeddingErrors, processWith, mapWith, guardWith, mapErrors, constMapErrors, wrapErrors, mapWithPure) where
+module Buki.Err (module Buki.Union, Err (..), mkFailure, mkSuccess, In (..), Embedable (..), embeddingErrors, processWith, mapWith, guardWith, mapErrors, constMapErrors, wrapErrors, mapWithPure, liftS, liftE, liftF, liftR, liftG, unwrap, unwrapM, unwrap', unwrapM') where
 
 import Buki.Union
 
@@ -119,3 +119,76 @@ processWith action h = do
         (Success _) -> pure $ mkSuccess a'
         (Failure err) -> pure $ Failure err
     (Failure e) -> pure $ Failure e
+
+liftS :: forall (errs' :: [Type]) (m :: Type -> Type) (errs :: [Type]) (a :: Type) (b :: Type).
+  (Monad m, Embedable errs errs') =>
+  (a -> m (Err errs' b)) -> Err errs a -> m (Err errs' b)
+liftS f (Success a) = f a
+liftS _ (Failure e) = pure $ Failure (embed e)
+
+liftG :: forall (errs' :: [Type]) (m :: Type -> Type) (err :: Type) (errs :: [Type]) (a :: Type).
+  (Monad m, Embedable errs errs', err `In` errs') =>
+  (a -> m (Maybe err)) -> Err errs a -> m (Err errs' a)
+liftG f (Success a) = do
+  e <- f a
+  case e of
+    Nothing -> pure $ Success a
+    Just err -> pure $ Failure (inject err)
+liftG _ (Failure e) = pure $ Failure (embed e)
+
+liftE :: forall (errs' :: [Type]) (m :: Type -> Type) (err :: Type) (err' :: Type) (errs :: [Type]) (a :: Type).
+   (Monad m, errs `Embedable` errs', err' `In` errs') =>
+   (err -> m (Either err' a)) -> Err (err ': errs) a -> m (Err errs' a)
+liftE _ (Success a) = pure $ Success a
+liftE f (Failure e) = case project' @err @errs e of
+  Left (es :: Union errs) -> pure $ Failure (embed es :: Union errs')
+  Right (e' :: err) -> do
+    e'' <- f e'
+    case e'' of
+      Left e''' -> pure $ Failure (inject e''')
+      Right b -> pure $ mkSuccess b
+
+-- liftH :: forall (m :: Type -> Type) (err :: Type) (err' :: Type) (errs :: [Type]) (a :: Type).
+--   (Monad m) =>
+--   (err -> m err') -> Err (err ': errs) a -> m (Err (errs `PlusPlus` err') a)
+-- liftH _ (Success a) = pure $ Success a
+-- liftH f (Failure e) = case project' @err @errs e of
+--   Left (es :: Union errs) -> pure $ Failure es
+--   Right (e' :: err) -> do
+--     b <- f e'
+--     pure $ mkFailure b
+
+liftF :: forall (m :: Type -> Type) (err :: Type) (errs :: [Type]) (a :: Type).
+  (Monad m) =>
+  (err -> m a) -> Err (err ': errs) a -> m (Err errs a)
+liftF _ (Success a) = pure $ Success a
+liftF f (Failure e) = case project' @err @errs e of
+  Left (es :: Union errs) -> pure $ Failure es
+  Right (e' :: err) -> do
+    b <- f e'
+    pure $ mkSuccess b
+
+liftR :: forall (errs' :: [Type]) (m :: Type -> Type) (errs :: [Type]) (a :: Type).
+  (Monad m, errs `Embedable` errs') =>
+  Err errs a -> m (Err errs' a)
+liftR (Success a) = pure $ Success a
+liftR (Failure e) = pure $ Failure (embed e :: Union errs')
+
+liftErr :: forall a. a -> Err '[] a
+liftErr = mkSuccess
+
+unwrap :: forall a. Err '[] a -> a
+unwrap (Success a) = a
+unwrap (Failure _) = error "unwrap: Failure"
+
+unwrapM :: forall (m :: Type -> Type) (a :: Type). (Monad m) => Err '[] a -> m a
+unwrapM (Success a) = pure a
+unwrapM (Failure _) = error "unwrapM: Failure"
+
+unwrap' :: forall errs a. String -> Err errs a -> a
+unwrap' _   (Success a) = a
+unwrap' msg (Failure _) = error $ "unwrapping failed: " <> msg
+
+unwrapM' :: forall (m :: Type -> Type) (errs :: [Type]) (a :: Type). (Monad m) => String -> Err errs a -> m a
+unwrapM' _   (Success a) = pure a
+unwrapM' msg (Failure _) = error $ "unwrapping failed: " <> msg

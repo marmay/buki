@@ -21,12 +21,17 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  Buki.Eff.Db
+                    , Buki.Eff.FileStorage
                     , Buki.Eff.Time
                     , Buki.Err
                     , Buki.Backend.Auth
+                    , Buki.Backend.Book
+                    , Buki.Backend.IsbnLookup
                     , Buki.Backend.Kidsgroup
+                    , Buki.Backend.Place
                     , Buki.Backend.Session
                     , Buki.Backend.User
+                    , Buki.Model.SqlType
                     , Buki.Model.Tables
                     , Buki.Model.Types
                     , Buki.Types
@@ -67,10 +72,13 @@ library
                     , bytestring
                     , containers
                     , data-default
+                    , directory
                     , effectful-core
                     , effectful-th
                     , effectful-plugin
                     , exceptions
+                    , extra
+                    , isbn
                     , lens
                     , log-base
                     , log-effectful

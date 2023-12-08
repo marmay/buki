@@ -9,6 +9,7 @@ module Buki.Model.Types.LoanRange
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 import Data.Time.Calendar (Day)
 
+import Buki.Model.SqlType (SqlType)
 import Buki.Model.TH
 import Buki.Model.Types.Id
 

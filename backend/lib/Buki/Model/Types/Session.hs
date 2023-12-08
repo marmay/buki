@@ -6,6 +6,7 @@ module Buki.Model.Types.Session (
   pSession,
 ) where
 
+import Buki.Model.SqlType (SqlType)
 import Buki.Model.TH
 import Buki.Model.Types.Id
 import Buki.Model.Types.Permissions (Permissions)

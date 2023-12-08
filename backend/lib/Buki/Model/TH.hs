@@ -32,51 +32,19 @@ import  Language.Haskell.TH
 import Control.Lens
 
 import Data.Char (toLower, isUpper)
-import Data.Text (Text)
-import Data.Time (LocalTime, UTCTime)
-import Data.Time.Calendar (Day)
-import Data.UUID (UUID)
 
 import qualified Opaleye as O
 
-import Buki.Model.Types.Id
-import Buki.Model.Types.LoanState
-import Buki.Model.Types.Permissions
 
-import qualified Buki.Types as Ty
-
-type family SqlType a
-
-  -- Ids and related stuff:
-type instance SqlType (Id a) = O.Field O.SqlUuid
-type instance SqlType (Maybe (Id a)) = O.FieldNullable O.SqlUuid
-type instance SqlType UUID = O.Field O.SqlUuid
-type instance SqlType (Maybe UUID) = O.FieldNullable O.SqlUuid
-
--- Text:
-type instance SqlType Text = O.Field O.SqlText
-type instance SqlType (Maybe Text) = O.FieldNullable O.SqlText
-
--- Date and time:
-type instance SqlType Day = O.Field O.SqlDate
-type instance SqlType (Maybe Day) = O.Field O.SqlDate
-type instance SqlType LocalTime = O.Field O.SqlTimestamp
-type instance SqlType (Maybe LocalTime) = O.FieldNullable O.SqlTimestamp
-type instance SqlType UTCTime = O.Field O.SqlTimestamptz
-type instance SqlType (Maybe UTCTime) = O.FieldNullable O.SqlTimestamptz
-
--- Primitive types:
-type instance SqlType Int = O.Field O.SqlInt4
-type instance SqlType Bool = O.Field O.SqlBool
-
--- Custom enums:
-type instance SqlType LoanState = O.Field SqlLoanState
-type instance SqlType Permissions = O.Field SqlPermissions
-
--- Strong types:
-type instance SqlType Ty.Name = O.Field O.SqlText
-type instance SqlType Ty.EmailAddress = O.Field O.SqlText
-type instance SqlType Ty.Password = O.Field O.SqlText
+requiredTableMaybeField ::
+  String ->
+  O.TableFields (O.MaybeFields (O.Field a)) (O.MaybeFields (O.Field a))
+requiredTableMaybeField name =
+  dimap (\mf -> O.matchMaybe mf $ \case
+            Nothing -> O.null
+            Just x -> O.toNullable x)
+        O.nullableToMaybeFields
+        (O.requiredTableField name)
 
 makeDbAliases :: Name -> [Q Type] -> Q [Dec]
 makeDbAliases recordName types = do
@@ -105,41 +73,70 @@ makeDbAliases recordName types = do
 
 makeDbTable :: String -> Name -> Q [Dec]
 makeDbTable tableName baseName = do
-  let lowerHead = over _head toLower
   let baseNameStr = nameBase baseName
   let baseValueNameStr = lowerHead baseNameStr
   let fieldPrefix = baseValueNameStr ++ "'"
   let functionName = mkName $ baseValueNameStr ++ "Table"
+  let haskellType = mkName baseNameStr
   let sqlType = mkName $ baseNameStr ++ "Field"
   let sqlTableType = ConT ''O.Table `AppT` ConT sqlType `AppT` ConT sqlType
 
-  recordInfo <- reify (mkName $ baseNameStr ++ "'")
-  case recordInfo of
-    TyConI (DataD _ _ _ _ [RecC _ fields] _) ->
-      let
-        stripPrefix :: String -> String -> String
-        stripPrefix (p:ps) (s:ss)
-          | p == s = stripPrefix ps ss
-          | otherwise = fail "Unexpected field name!"
-        stripPrefix [] ss = ss
-        stripPrefix _ _ = fail "Unexpected field name!"
-        makeTableField :: (Name, Bang, Type) -> Q FieldExp
-        makeTableField (name, _, _) = do
-          expr <- varE 'O.tableField `appE`
-                    stringE (toUnderscores $ lowerHead $ stripPrefix fieldPrefix $ nameBase name)
-          pure (name, expr)
-        makeTable :: [(Name, Bang, Type)] -> Q Exp
-        makeTable fs = do
-          varE 'O.table
-            `appE` stringE tableName
-            `appE` (varE (mkName $ "p" ++ baseNameStr)
-                    `appE` recConE (mkName baseNameStr) (map makeTableField fs))
-       in do
-         table <- makeTable fields
-         pure [ SigD functionName sqlTableType
-              , FunD functionName [Clause [] (NormalB table) []]
-              ]
-    _ -> fail "Could not find record type!"
+  fieldNames <- getFieldNames (mkName $ baseNameStr <> "'")
+  fieldTypes <- getTySynTypes haskellType
+  -- _ <- error $ "makeTable" <> show (fieldNames `zip` fieldTypes)
+  table <- makeTable baseNameStr fieldPrefix $ fieldNames `zip` fieldTypes
+  pure [ SigD functionName sqlTableType
+       , FunD functionName [Clause [] (NormalB table) []]
+       ]
+  where
+    getFieldNames :: Name -> Q [Name]
+    getFieldNames name = do
+      info <- reify name
+      case info of
+        TyConI (DataD _ _ _ _ [RecC _ fields] _) -> pure $ map (\(n, _, _) -> n) fields
+        _ -> fail "Could not find record type!"
+
+    getTySynTypes :: Name -> Q [Type]
+    getTySynTypes name = do
+      info <- reify name
+      case info of
+        TyConI (TySynD _ _ ty) -> getAppliedTypes ty []
+        _ -> fail "Could not find type synonym!"
+
+    getAppliedTypes :: Type -> [Type] -> Q [Type]
+    getAppliedTypes (AppT t1 t2) acc = getAppliedTypes t1 (t2 : acc)
+    getAppliedTypes _ acc = pure acc
+
+    stripPrefix :: String -> String -> String
+    stripPrefix (p:ps) (s:ss)
+      | p == s = stripPrefix ps ss
+      | otherwise = fail "Unexpected field name!"
+    stripPrefix [] ss = ss
+    stripPrefix _ _ = fail "Unexpected field name!"
+
+    isMaybe :: Type -> Bool
+    isMaybe (AppT (ConT maybeCon) _) = maybeCon == ''Maybe
+    isMaybe _ = False
+
+    tableFieldGen :: Type -> Name
+    tableFieldGen ty
+      | isMaybe ty = 'requiredTableMaybeField
+      | otherwise  = 'O.requiredTableField
+
+    makeTableField :: String -> (Name, Type) -> Q FieldExp
+    makeTableField fieldPrefix (name, ty) = do
+      expr <- varE (tableFieldGen ty) `appE`
+                stringE (toUnderscores $ lowerHead $ stripPrefix fieldPrefix $ nameBase name)
+      pure (name, expr)
+
+    makeTable :: String -> String -> [(Name, Type)] -> Q Exp
+    makeTable baseNameStr fieldPrefix fs = do
+      varE 'O.table
+        `appE` stringE tableName
+        `appE` (varE (mkName $ "p" ++ baseNameStr)
+                `appE` recConE (mkName baseNameStr) (map (makeTableField fieldPrefix) fs))
+
+    lowerHead = over _head toLower
 
 toUnderscores :: String -> String
 toUnderscores (x:xs)

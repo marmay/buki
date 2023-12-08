@@ -8,6 +8,7 @@ module Buki.Model.Types.BookCopy
 
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 
+import Buki.Model.SqlType (SqlType)
 import Buki.Model.TH
 import Buki.Model.Types.Book
 import Buki.Model.Types.Id
@@ -35,6 +36,6 @@ makeDbAliases ''BookCopy' [ [t|BookCopyId|]
                           , [t|Int|]
                           , [t|Bool|]
                           , [t|BookId|]
-                          , [t|Maybe (PlaceId)|]
+                          , [t|Maybe PlaceId|]
                           ]
 $(makeAdaptorAndInstance' ''BookCopy')

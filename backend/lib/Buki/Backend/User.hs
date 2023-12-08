@@ -67,7 +67,7 @@ data User :: Effect where
 makeEffect ''User
 type instance DispatchOf User = 'Dynamic
 
-runUserDb :: (Db :> es, IOE :> es) => Eff (User ': es) a -> Eff es a
+runUserDb :: (Db :> es) => Eff (User ': es) a -> Eff es a
 runUserDb = interpret $ \_ -> \case
   RegisterUser regData -> dbRegisterUser regData
   AuthenticateUser email password -> dbAuthenticateUser email password
@@ -85,17 +85,19 @@ dbRegisterUser RegisterData{..} = do
                     , user'Name = O.toFields registerDataName
                     , user'PasswordHash = O.toFields $ unvalidate @Text registerDataPassword
                     , user'FailedLoginAttempts = O.sqlInt4 0
-                    , user'LockedAt = O.maybeToNullable Nothing
+                    , user'LockedAt = O.nothingFields
                     , user'Permissions = O.toFields Nobody
                     , user'KidsgroupId = O.toFields registerDataKidsgroup
                     , user'Kidsymbol = O.toFields registerDataKidsymbol
                     }
-  dbCatch handler $ dbInsert1 M.userTable userRecord M.user'Id
-    where
-      handler :: S.ConstraintViolation -> Maybe (Err '[EmailAddressTakenError, InvalidKidsgroupIdError] M.UserId)
-      handler (S.UniqueViolation _) = Just $ mkFailure EmailAddressTakenError
-      handler (S.ForeignKeyViolation _ _) = Just $ mkFailure InvalidKidsgroupIdError
-      handler _ = Nothing
+  dbCatch (onAnyUniqueViolation (mkFailure EmailAddressTakenError) <>
+           onAnyForeignKeyViolation InvalidKidsgroupIdError)
+    $ mkSuccess <$> dbInsert1 M.userTable userRecord M.user'Id
+--    where
+--      handler :: S.ConstraintViolation -> Maybe (Err '[EmailAddressTakenError, InvalidKidsgroupIdError] M.UserId)
+--      handler (S.UniqueViolation _) = Just $ mkFailure EmailAddressTakenError
+--      handler (S.ForeignKeyViolation _ _) = Just $ mkFailure InvalidKidsgroupIdError
+--      handler _ = Nothing
 
 dbAuthenticateUser :: (Db :> es) => EmailAddress -> Password -> Eff es (Err '[InvalidUserOrPasswordError] (M.UserId, Name, M.Permissions))
 dbAuthenticateUser email password = do
@@ -118,7 +120,7 @@ dbListUsers = do
         q = proc () -> do
           user <- O.selectTable M.userTable -< ()
           kidsgroup <- O.selectTable M.kidsgroupTable -< ()
-          O.restrict -< user ^. M.kidsgroupId .== kidsgroup ^. M.id
+          O.restrict -< (user ^. M.kidsgroupId) .== (kidsgroup ^. M.id)
           returnA -< (user, kidsgroup)
 
         toListUser :: (M.User, M.Kidsgroup) -> ListUser
@@ -136,7 +138,7 @@ dbChangeUserPermissions :: (Db :> es) => M.UserId -> Permissions -> Eff es (Err 
 dbChangeUserPermissions userId permissions = do
   updatedCount <- dbUpdate $ O.Update
     { O.uTable = M.userTable
-    , O.uUpdateWith = O.updateEasy $ \user -> user & M.permissions .~ O.toFields permissions
+    , O.uUpdateWith = \user -> user & M.permissions .~ O.toFields permissions
     , O.uWhere = \user -> user ^. M.id .== O.toFields userId
     , O.uReturning = O.rCount
     }

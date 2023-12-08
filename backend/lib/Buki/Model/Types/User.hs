@@ -6,6 +6,7 @@ module Buki.Model.Types.User
   , pUser
   ) where
 
+import Buki.Model.SqlType (SqlType)
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 import Data.Text (Text)
 import Data.Time (LocalTime)

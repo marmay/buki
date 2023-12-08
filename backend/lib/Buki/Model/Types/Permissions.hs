@@ -7,6 +7,7 @@ import Opaleye ( DefaultFromField(..), FromField, ToFields, Field )
 import Opaleye.Internal.Inferrable ( Inferrable(Inferrable) )
 import Opaleye.Experimental.Enum ( EnumMapper(..), enumMapper )
 import Data.Profunctor.Product.Default (Default(..))
+import Buki.Model.SqlType (SqlType)
 
 data SqlPermissions
 data Permissions
@@ -30,6 +31,9 @@ sqlPermissionsMapper :: EnumMapper SqlPermissions Permissions
 sqlPermissionsMapper = enumMapper "permissions"
                                    fromSqlPermissionsString
                                    toSqlPermissionsString
+
+type instance SqlType Permissions = Field SqlPermissions
+
 instance DefaultFromField SqlPermissions Permissions where
   defaultFromField = enumFromField sqlPermissionsMapper
 instance permissions ~ Permissions

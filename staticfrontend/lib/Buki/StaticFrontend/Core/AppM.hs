@@ -7,20 +7,24 @@ import Servant
 import Database.PostgreSQL.Simple (Connection, ConnectInfo, connect, close)
 import Control.Monad.Catch (bracket, MonadMask)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Effectful (Eff, IOE, runEff)
-import qualified Buki.Eff.Db as E
 import Buki.StaticFrontend.Core.ViewM (ViewM, ViewContext(..))
 import Control.Monad.Reader (ReaderT, asks, runReader, runReaderT)
-import qualified Buki.Eff.Time as E
 import Buki.Backend.Auth (AuthorizedUser)
 
-newtype AppConfig = AppConfig
+import Effectful (Eff, IOE, runEff)
+import qualified Buki.Eff.Db as E (Db, runDb)
+import qualified Buki.Eff.Time as E (Time, runTime)
+import qualified Buki.Eff.FileStorage as E (FileStorage, runLocalFileStorage)
+
+data AppConfig = AppConfig
   { appConfigDbConnectInfo :: ConnectInfo
+  , appConfigFileStorageDir :: FilePath
   }
 
 data AppContext = AppContext
   { appUrlPrefix :: Text
   , appDbConn :: Connection
+  , appFileStorageDir :: FilePath
   }
 
 toViewContext :: Maybe AuthorizedUser -> AppContext -> ViewContext
@@ -45,6 +49,7 @@ mkAppContext AppConfig{..} = do
   pure $ AppContext
     { appUrlPrefix = "http://localhost:8080/"
     , appDbConn = appDbConn'
+    , appFileStorageDir = appConfigFileStorageDir
     }
 
 closeAppContext :: forall m. (MonadIO m) => AppContext -> m ()
@@ -56,10 +61,16 @@ safeLink' api endpoint = do
   urlPrefix' <- asks appUrlPrefix
   pure $ urlPrefix' <> toUrlPiece (safeLink api endpoint)
 
-runEffects :: forall a. Eff '[E.Db, E.Time, IOE] a -> AppM a
+runEffects :: forall a. Eff '[E.FileStorage, E.Db, E.Time, IOE] a -> AppM a
 runEffects eff = do
   conn <- asks appDbConn
-  liftIO $ runEff $ E.runTime $ E.runDb conn eff
+  localFileStorageDir <- asks appFileStorageDir
+  liftIO
+    $ runEff
+    $ E.runTime
+    $ E.runDb conn
+    $ E.runLocalFileStorage localFileStorageDir
+    $ eff
 
 liftViewM :: Maybe AuthorizedUser -> ViewM a -> AppM a
 liftViewM user a = asks (runReader a . toViewContext user)

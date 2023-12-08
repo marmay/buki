@@ -134,11 +134,11 @@ dbMakeSession email password sessionLength = do
 dbAuthenticate :: forall es. (Db :> es, Time :> es) => M.SessionId -> NominalDiffTime -> Eff es (Err '[InvalidSessionId, SessionTimedOut] AuthorizedUser)
 dbAuthenticate sessionId sessionLength = do
   selectSession
-    `guardWith` validateSession
-    `processWith` updateSession
-    `mapWithPure` makeAuthenticatedUser
+    >>= liftS @'[InvalidSessionId, SessionTimedOut] validateSession
+    >>= liftS @'[InvalidSessionId, SessionTimedOut] updateSession
+    >>= liftS (pure . mkSuccess . makeAuthenticatedUser)
  where
-  selectSession :: Eff es (Err '[InvalidSessionId, SessionTimedOut] (M.UserId, Text, Text, Permissions, UTCTime))
+  selectSession :: Eff es (Err '[InvalidSessionId] (M.UserId, Text, Text, Permissions, UTCTime))
   selectSession =
     constMapErrors InvalidSessionId
       <$> dbSelect1
@@ -155,13 +155,14 @@ dbAuthenticate sessionId sessionLength = do
                 )
         )
 
-  validateSession (_, _, _, _, expiresAt) = do
+  validateSession p@(_, _, _, _, expiresAt) = do
     now <- getTime
     if now > expiresAt
-      then pure $ Just SessionTimedOut
-      else pure Nothing
+      then pure $ mkFailure SessionTimedOut
+      else pure $ mkSuccess p
 
-  updateSession (_, name, emailAddress, permissions, expiresAt) = do
+  -- updateSession :: (M.UserId, Text, Text, Permissions, UTCTime) -> Eff es (Err '[InvalidSessionId, SessionTimedOut] (M.UserId, Text, Text, Permissions, UTCTime))
+  updateSession p@(_, _, _, _, expiresAt) = do
     _ <-
       dbUpdate
         O.Update
@@ -174,7 +175,8 @@ dbAuthenticate sessionId sessionLength = do
           , O.uWhere = \session -> session ^. M.id .== O.toFields sessionId
           , O.uReturning = O.rCount
           }
-    pure $ mkSuccess (name, emailAddress, permissions)
+    -- pure $ mkSuccess (name, emailAddress, permissions)
+    pure $ mkSuccess p
 
   makeAuthenticatedUser (userId, name, emailAddress, permissions, _) =
     AuthorizedUser userId (forceValidate name) (forceValidate emailAddress) (toAuthPermissions permissions)

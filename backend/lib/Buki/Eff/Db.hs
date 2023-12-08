@@ -1,16 +1,26 @@
 module Buki.Eff.Db
   ( Db(..)
+  , NoRecordsFound(..)
+  , TooManyRecordsFound(..)
+  , ConstraintViolationHandler(..)
   , dbSelect
   , dbInsert
   , dbInsert1
   , dbUpdate
   , dbDelete
+  , dbDelete1
   , dbCatch
+  , dbCatchErr
   , dbFetch
   , dbMkUuid
   , dbWithTransaction
+  , dbWithTransactionErr
   , runDb
   , dbSelect1
+  , dbSelect1'
+  , dbSelect1Maybe
+  , onAnyUniqueViolation
+  , onAnyForeignKeyViolation
   ) where
 
 import Data.UUID (UUID)
@@ -32,6 +42,30 @@ data NoRecordsFound = NoRecordsFound
 data TooManyRecordsFound = TooManyRecordsFound
   deriving (Eq, Show)
 
+newtype ConstraintViolationHandler errs m a = ConstraintViolationHandler {
+    runConstraintViolationHandler :: S.ConstraintViolation -> m (Maybe (Err errs a))
+  }
+
+instance (Monad m) => Semigroup (ConstraintViolationHandler errs m a) where
+  ConstraintViolationHandler a <> ConstraintViolationHandler b = ConstraintViolationHandler $ \cv -> do
+    r <- a cv
+    case r of
+      Nothing -> b cv
+      Just r' -> pure $ Just r'
+
+instance (Monad m) => Monoid (ConstraintViolationHandler errs m a) where
+  mempty = ConstraintViolationHandler $ \_ -> pure Nothing
+
+onAnyUniqueViolation :: forall errs m a. (Monad m) => Err errs a -> ConstraintViolationHandler errs m a
+onAnyUniqueViolation err = ConstraintViolationHandler $
+  \case (S.UniqueViolation _) -> pure $ Just err
+        _                     -> pure Nothing
+
+onAnyForeignKeyViolation :: forall err errs m a. (Monad m, err `In` errs) => err -> ConstraintViolationHandler errs m a
+onAnyForeignKeyViolation err = ConstraintViolationHandler $
+  \case (S.ForeignKeyViolation _ _) -> pure $ Just $ mkFailure err
+        _                           -> pure Nothing
+
 -- In case of database manipulation, we want to handle constraint violations.
 -- This seems to be the best way to detect and report many domain errors.
 --
@@ -50,13 +84,20 @@ data Db :: Effect where
   DbInsert :: O.Insert haskells -> Db m haskells
   DbUpdate :: O.Update haskells -> Db m haskells
   DbDelete :: O.Delete haskells -> Db m haskells
+  DbDelete1 :: forall haskells fields fieldsR fieldsW m.
+               ( D.Default O.FromFields fields haskells
+               )
+            => O.Table fieldsW fieldsR -> (fieldsR -> O.Field O.SqlBool) -> (fieldsR -> fields)
+               -> Db m (Err '[NoRecordsFound] haskells)
   DbInsert1 :: forall haskells fields fieldsR fieldsW m.
               ( D.Default O.FromFields fields haskells
               )
            => O.Table fieldsW fieldsR -> fieldsW -> (fieldsR -> fields) -> Db m haskells
-  DbCatch :: (S.ConstraintViolation -> Maybe (Err errs a)) -> m a -> Db m (Err errs a)
+  DbCatch :: ConstraintViolationHandler errs m a -> m (Err errs a) -> Db m (Err errs a)
+  DbCatchErr :: (S.ConstraintViolation -> m (Maybe (Err errs a))) -> m a -> Db m (Err errs a)
   DbMkUuid :: Db m UUID
   DbWithTransaction :: m a -> Db m a
+  DbWithTransactionErr :: m (Err errs a) -> Db m (Err errs a)
 
 makeEffect ''Db
 
@@ -66,6 +107,15 @@ runDb conn = interpret $ \env -> \case
   DbInsert insert -> liftIO $ O.runInsert conn insert
   DbUpdate update -> liftIO $ O.runUpdate conn update
   DbDelete delete -> liftIO $ O.runDelete conn delete
+  DbDelete1 table predicate projection -> liftIO $ do
+    res <- O.runDelete conn O.Delete { O.dTable = table
+                                     , O.dWhere = predicate
+                                     , O.dReturning = O.rReturning projection
+                                     }
+    case res of
+      [a] -> pure $ mkSuccess a
+      []  -> pure $ mkFailure NoRecordsFound
+      _   -> error "DbDelete1: unexpected result"
   DbInsert1 table fields projection -> liftIO $ do
     res <- O.runInsert conn O.Insert { O.iTable = table
                                       , O.iRows = [fields]
@@ -82,7 +132,20 @@ runDb conn = interpret $ \env -> \case
         case S.constraintViolation e of
           Nothing -> liftIO $ throw e
           Just cv -> do
-            case handler cv of
+            handlerResult <- unlift $ runConstraintViolationHandler handler cv
+            case handlerResult of
+              Nothing -> liftIO $ throw e
+              Just r'' -> pure r''
+      Right a -> pure a
+  DbCatchErr handler action -> localSeqUnliftIO env $ \unlift -> do
+    r <- liftIO $ try $ unlift action
+    case r of
+      Left e -> do
+        case S.constraintViolation e of
+          Nothing -> liftIO $ throw e
+          Just cv -> do
+            handlerResult <- unlift $ handler cv
+            case handlerResult of
               Nothing -> liftIO $ throw e
               Just r'' -> pure r''
       Right a -> pure $ pure a
@@ -96,7 +159,14 @@ runDb conn = interpret $ \env -> \case
   DbWithTransaction action -> localSeqUnliftIO env $ \unlift -> do
     liftIO $ S.begin conn -- TODO: handle exceptions
     r <- unlift action
-    liftIO (S.rollback conn)
+    liftIO (S.commit conn)
+    pure r
+  DbWithTransactionErr action -> localSeqUnliftIO env $ \unlift -> do
+    liftIO $ S.begin conn -- TODO: handle exceptions
+    r <- unlift action
+    case r of
+      Failure _ -> liftIO (S.rollback conn)
+      _         -> liftIO (S.commit conn)
     pure r
 
 dbSelect1 :: forall haskells fields es.
@@ -111,3 +181,28 @@ dbSelect1 select = do
     [row] -> pure $ mkSuccess row
     [] -> pure $ mkFailure NoRecordsFound
     _ -> pure $ mkFailure TooManyRecordsFound
+
+dbSelect1' :: forall haskells fields es.
+              ( D.Default O.FromFields fields haskells
+              , D.Default O.Unpackspec fields fields
+              , Db :> es
+              )
+           => O.Select fields -> Eff es (Err '[NoRecordsFound] haskells)
+dbSelect1' select = do
+  rows <- dbSelect select
+  case rows of
+      [row] -> pure $ mkSuccess row
+      [] -> pure $ mkFailure NoRecordsFound
+      _ -> error "dbSelect1': too many rows"
+
+dbSelect1Maybe :: forall haskells fields es.
+              ( D.Default O.FromFields fields haskells
+              , D.Default O.Unpackspec fields fields
+              , Db :> es
+              )
+           => O.Select fields -> Eff es (Maybe haskells)
+dbSelect1Maybe select =
+  dbSelect1' select
+    >>= liftS (pure . mkSuccess . Just)
+    >>= liftF (\NoRecordsFound -> pure (Nothing :: Maybe haskells))
+    >>= unwrapM
