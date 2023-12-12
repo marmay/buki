@@ -15,7 +15,7 @@
             bukiProject =
               final.haskell-nix.project' {
                 src = ./.;
-                compiler-nix-name = "ghc928";
+                compiler-nix-name = "ghc963";
                 configureArgs = "-fdevel";
                 shell.tools = {
                   cabal = {};

@@ -1,4 +1,4 @@
-module Buki.Model.SqlType
+module Buki.Model.Util.SqlType
   ( SqlType
   ) where
 

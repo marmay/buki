@@ -2,3 +2,4 @@ dist-newstyle
 .hix-flake
 *~
 \#*\#
+data/

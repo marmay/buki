@@ -15,16 +15,16 @@ CREATE TABLE books (
     isbn TEXT DEFAULT NULL,
     recommended BOOLEAN DEFAULT false NOT NULL,
     cover TEXT DEFAULT NULL,
-    cached_cover TEXT DEFAULT NULL
-    UNIQUE (title, author)
+    cached_cover TEXT DEFAULT NULL,
+    UNIQUE (title, author),
     UNIQUE (isbn)
 );
 CREATE TABLE book_copies (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     catalog_id INT NOT NULL UNIQUE,
     loanable BOOLEAN DEFAULT false NOT NULL,
-    book_id UUID NOT NULL,
-    place_id UUID DEFAULT NULL
+    book_id UUID NOT NULL REFERENCES books(id),
+    place_id UUID DEFAULT NULL REFERENCES places(id)
 );
 
 CREATE TABLE kidsgroups (
@@ -54,8 +54,8 @@ CREATE TABLE sessions (
 );
 CREATE TABLE loans (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
-    user_id UUID NOT NULL,
-    book_copy_id UUID NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id),
+    book_copy_id UUID NOT NULL REFERENCES book_copies(id),
     from_day DATE NOT NULL,
     to_day DATE NOT NULL,
     state loan_state NOT NULL
@@ -65,18 +65,18 @@ CREATE TABLE loan_ranges (
     from_day DATE NOT NULL,
     to_day DATE NOT NULL
 );
-CREATE TABLE book_tags (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
-    book_id UUID NOT NULL,
-    tag_id UUID NOT NULL
-);
 CREATE TABLE tags (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
     name TEXT NOT NULL UNIQUE
 );
+CREATE TABLE book_tags (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
+    book_id UUID NOT NULL REFERENCES books(id),
+    tag_id UUID NOT NULL REFERENCES tags(id)
+);
 CREATE TABLE user_book_favorites (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY NOT NULL,
-    user_id UUID NOT NULL,
-    book_id UUID NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id),
+    book_id UUID NOT NULL REFERENCES books(id),
     favorite_since TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );

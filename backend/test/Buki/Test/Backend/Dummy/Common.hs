@@ -1,7 +1,7 @@
 module Buki.Test.Backend.Dummy.Common where
 
 import Buki.Backend.Auth
-import qualified Buki.Model.Types as M
+import qualified Buki.Model as M
 
 import Data.UUID (nil)
 

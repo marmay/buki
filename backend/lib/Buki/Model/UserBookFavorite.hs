@@ -1,19 +1,22 @@
-module Buki.Model.Types.UserBookFavorite
+{-# LANGUAGE UndecidableInstances #-}
+
+module Buki.Model.UserBookFavorite
   ( UserBookFavorite'(..)
   , UserBookFavorite
   , UserBookFavoriteId
   , UserBookFavoriteField
   , pUserBookFavorite
+  , userBookFavoriteTable
   ) where
 
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 import Data.Time.LocalTime (LocalTime)
 
-import Buki.Model.SqlType (SqlType)
-import Buki.Model.TH
-import Buki.Model.Types.Book
-import Buki.Model.Types.Id
-import Buki.Model.Types.User
+import Buki.Model.Util.SqlType (SqlType)
+import Buki.Model.Util.TH
+import Buki.Model.Book
+import Buki.Model.Id
+import Buki.Model.User
 
 data UserBookFavorite' t1 t2 t3 t4 = UserBookFavorite
   { userBookFavorite'Id :: t1
@@ -28,3 +31,4 @@ makeDbAliases ''UserBookFavorite' [ [t|UserBookFavoriteId|]
                                   , [t|LocalTime|]
                                   ]
 makeAdaptorAndInstance' ''UserBookFavorite'
+makeDbTable "user_book_favorites" ''UserBookFavorite

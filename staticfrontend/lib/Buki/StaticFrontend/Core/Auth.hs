@@ -5,21 +5,20 @@
 --                      becomes available in the handler.
 --   - ReqAuthorizedUser: The user must be logged in and have the specified permissions,
 --                        otherwise an exception is raised.
+
 module Buki.StaticFrontend.Core.Auth where
 
-import Buki.Model.Types (SessionId, Id (Id))
+import Buki.Model (SessionId, Id (Id))
 
 import Network.Wai (Request (..))
 import Servant.Server.Experimental.Auth
 import Web.Cookie (parseCookies)
-import Buki.Backend.Session (authorize, runSessionDb, HasValidatePermissions')
+import Buki.Backend.Session (authorize, HasValidatePermissions')
 import qualified Buki.Err as B (Err(..))
 import Buki.StaticFrontend.Core.AppM
 import Servant.API.Experimental.Auth
 import Buki.Backend.Auth
 import Data.UUID (fromASCIIBytes)
-import Data.Default (def)
-import Buki.Backend.User (runUserDb)
 import Effectful (liftIO)
 
 data ReqNoUser
@@ -62,7 +61,7 @@ authTryUser req = do
     Nothing -> pure Nothing
     Just sessionToken -> do
       liftIO $ putStrLn $ "Trying to authorize user with session token " <> show sessionToken
-      mUser <- runEffects $ runUserDb $ runSessionDb def $ authorize sessionToken
+      mUser <- runEffects $ authorize sessionToken
       case mUser of
         (B.Failure _) -> pure Nothing
         (B.Success user) -> pure $ Just user

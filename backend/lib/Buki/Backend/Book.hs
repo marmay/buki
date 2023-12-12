@@ -5,10 +5,10 @@ module Buki.Backend.Book where
 import Effectful
 
 import Buki.Eff.Db
+import Buki.Eff.IsbnLookup (IsbnLookup)
+
 import Buki.Backend.Auth
-import Buki.Backend.IsbnLookup (IsbnLookup)
-import qualified Buki.Model.Types as M
-import qualified Buki.Model.Tables as M
+import qualified Buki.Model as M
 import qualified Opaleye as O
 import Opaleye.Operators ((.==))
 import Control.Lens ((^.), (&), (?~), (<&>))
@@ -126,12 +126,12 @@ makeBookFromIsbn _ isbn = do
 createOrFindBook :: forall es. (Db :> es) => M.Book -> O.SelectArr () M.BookField -> Eff es BookData
 createOrFindBook book query = do
   dbWithTransaction $ do
-    (book' :: Err '[] M.Book) <- dbCatch (ConstraintViolationHandler handler) $ mkSuccess <$> dbInsert1 M.bookTable (O.toFields book) id
+    (book' :: Err '[] M.Book) <- dbCatchViolation (ConstraintViolationHandler handler) $ mkSuccess <$> dbInsertOne M.bookTable (O.toFields book)
     pure $ toBookData (unwrap book')
   where
     handler :: S.ConstraintViolation -> Eff es (Maybe (Err '[] M.Book))
     handler (S.UniqueViolation _) = do
-      b <- dbSelect1' query >>= unwrapM' "Your database is broken!"
+      b <- dbSelectExactlyOneForced query
       pure $ Just $ mkSuccess b
     handler _ = pure Nothing
 
@@ -139,10 +139,10 @@ createOrFindBook book query = do
 showBook :: forall es. (Db :> es) => M.BookId -> Eff es (Err '[ BookNotFound ] BookData)
 showBook bookId = do
   (fmap . fmap) toBookData $
-    selectBook >>= liftE @'[ BookNotFound ] (\NoRecordsFound -> pure $ Left BookNotFound)
+    selectBook >>= liftE @'[ BookNotFound ] (\NoRecords -> pure $ Left BookNotFound)
   where
-    selectBook :: Eff es (Err '[ NoRecordsFound ] M.Book)
-    selectBook = dbSelect1' $ proc () -> do
+    selectBook :: Eff es (Err '[ NoRecords ] M.Book)
+    selectBook = dbSelectAtMostOneForced $ proc () -> do
       b <- O.selectTable M.bookTable -< ()
       O.restrict -< (b ^. M.id) .== O.toFields bookId
       returnA -< b
@@ -158,8 +158,8 @@ removeBook _ bookId = do
     _ <- dbDelete O.Delete { O.dTable = M.bookCopyTable
                            , O.dWhere = \bc -> (bc ^. M.bookId) .== O.toFields bookId
                            , O.dReturning = O.rCount }
-    dbDelete1 M.bookTable (\b -> (b ^. M.id) .== O.toFields bookId) id
-  >>= liftE @'[ BookNotFound ] (\NoRecordsFound -> pure $ Left BookNotFound)
+    dbDeleteOne M.bookTable (\b -> (b ^. M.id) .== O.toFields bookId)
+  >>= liftE @'[ BookNotFound ] (\NoRecords -> pure $ Left BookNotFound)
   <&> fmap toBookData
 
 listBookCopies :: forall es. (Db :> es) => M.BookId -> Eff es [BookCopyData]
@@ -174,17 +174,17 @@ listBookCopies bookId = do
 
 completeBookCopyData :: forall es. (Db :> es) => M.BookCopy -> Eff es BookCopyData
 completeBookCopyData bookCopy = do
-  (place :: Maybe (Maybe M.Place)) <- dbSelect1Maybe $ proc () -> do
+  (place :: Err '[NoRecords] (Maybe M.Place)) <- dbSelectAtMostOneForced $ proc () -> do
     place <- O.optionalRestrict (O.selectTable M.placeTable) -<
       \p -> O.toFields (bookCopy ^. M.placeId) `O.isJustAnd` (.== (p ^. M.id))
     returnA -< place
-  pure $ toBookCopyData bookCopy (join place)
+  pure $ toBookCopyData bookCopy (join $ errToMaybe place)
 
 addBookCopy :: forall auth es. (Db :> es, auth `HasPermissions` '[ 'BookManagement]) =>
   auth -> NewBookCopyData -> Eff es BookCopyData
 addBookCopy _ newBookCopyData = do
   bookCopyId <- dbMkUuid
-  dbInsert1 M.bookCopyTable (bookCopyData $ M.Id bookCopyId) id
+  dbInsertOne M.bookCopyTable (bookCopyData $ M.Id bookCopyId)
     >>= completeBookCopyData
   where
     bookCopyData :: M.Id M.BookCopy -> M.BookCopyField
@@ -199,8 +199,8 @@ addBookCopy _ newBookCopyData = do
 removeBookCopy :: forall auth es. (Db :> es, auth `HasPermissions` '[ 'BookManagement]) =>
   auth -> M.BookCopyId -> Eff es (Err '[ BookCopyNotFound ] BookCopyData)
 removeBookCopy _ bookCopyId =
-  dbDelete1 M.bookCopyTable (\bc -> (bc ^. M.id) .== O.toFields bookCopyId) id
-  >>= liftE @'[ BookCopyNotFound ] (\NoRecordsFound -> pure $ Left BookCopyNotFound)
+  dbDeleteOne M.bookCopyTable (\bc -> (bc ^. M.id) .== O.toFields bookCopyId)
+  >>= liftE @'[ BookCopyNotFound ] (\NoRecords -> pure $ Left BookCopyNotFound)
   >>= liftS (\b -> do
                 c <- completeBookCopyData b
                 pure $ mkSuccess c)

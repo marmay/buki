@@ -14,7 +14,7 @@ import qualified Data.Set as S
 
 import Buki.Types.Name (Name (..))
 import Buki.Types.EmailAddress (EmailAddress (..))
-import Buki.Model.Types (UserId)
+import Buki.Model (UserId)
 
 -- | Users are having roles. Each role grants a set of permissions.
 -- Some functions require users to have particular permissions.

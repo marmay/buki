@@ -1,17 +1,20 @@
-module Buki.Model.Types.Place
+{-# LANGUAGE UndecidableInstances #-}
+
+module Buki.Model.Place
   ( Place'(..)
   , Place
   , PlaceId
   , PlaceField
   , pPlace
+  , placeTable
   ) where
 
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 import Data.Text (Text)
 
-import Buki.Model.SqlType (SqlType)
-import Buki.Model.TH
-import Buki.Model.Types.Id
+import Buki.Model.Util.SqlType (SqlType)
+import Buki.Model.Util.TH
+import Buki.Model.Id
 
 -- | A place where books can be located.
 data Place' t1 t2 = Place
@@ -26,3 +29,4 @@ makeDbAliases ''Place' [ [t|PlaceId|]
                        , [t|Text|]
                        ]
 makeAdaptorAndInstance' ''Place'
+makeDbTable "places" ''Place

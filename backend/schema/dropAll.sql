@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS
   user_book_favorites,
-  tags,
   book_tags,
+  tags,
   loan_ranges,
   loans,
   sessions,

@@ -1,4 +1,4 @@
-module Buki.Model.Types.Id (
+module Buki.Model.Id (
   Id (..),
   toUuid,
 ) where
@@ -6,7 +6,7 @@ module Buki.Model.Types.Id (
 import Data.Profunctor.Product.Default qualified as D
 import Data.UUID (UUID)
 import Opaleye qualified as O
-import Buki.Model.SqlType (SqlType)
+import Buki.Model.Util.SqlType (SqlType)
 
 newtype Id a = Id UUID
   deriving (Eq, Show)

@@ -10,7 +10,7 @@ import Data.Profunctor.Product.Default qualified as O
 import qualified Opaleye as O
 
 import Buki.Validation
-import Buki.Model.SqlType (SqlType)
+import Buki.Model.Util.SqlType (SqlType)
 
 newtype Isbn = Isbn { unIsbn :: ISBN }
   deriving (Eq, Show)

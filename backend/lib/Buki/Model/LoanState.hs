@@ -1,4 +1,4 @@
-module Buki.Model.Types.LoanState
+module Buki.Model.LoanState
   ( SqlLoanState
   , LoanState(..)
   ) where
@@ -7,7 +7,7 @@ import Opaleye ( DefaultFromField(..), FromField, ToFields, Field )
 import Opaleye.Internal.Inferrable ( Inferrable(Inferrable) )
 import Opaleye.Experimental.Enum ( EnumMapper(..), enumMapper )
 import Data.Profunctor.Product.Default (Default(..))
-import Buki.Model.SqlType (SqlType)
+import Buki.Model.Util.SqlType (SqlType)
 
 data SqlLoanState
 data LoanState

@@ -1,4 +1,4 @@
-module Buki.Backend.IsbnLookup where
+module Buki.Eff.IsbnLookup where
 
 import Effectful
 import Effectful.TH

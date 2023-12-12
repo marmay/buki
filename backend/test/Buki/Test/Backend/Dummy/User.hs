@@ -6,12 +6,14 @@ import Buki.Backend.User
 import Buki.Eff.Db (Db)
 import Buki.Validation (forceValidate)
 
-import Buki.Model.Types qualified as M
+import Buki.Model qualified as M
 
 import Buki.Test.Backend.Dummy.Common
 import Buki.Test.Backend.Dummy.Kidsgroup
 
 import Buki.TestUtil.Err (assertSuccess)
+
+import Control.Lens ((^.))
 
 import Data.Text (Text)
 
@@ -41,8 +43,8 @@ listUser =
     , listUserPermissions = M.Nobody
     }
 
-makeTestUser :: forall es. (Kidsgroup :> es, User :> es, Db :> es, IOE :> es) => Eff es (M.Id M.Kidsgroup', M.Id M.User')
+makeTestUser :: forall es. (Db :> es, IOE :> es) => Eff es (M.Id M.Kidsgroup', M.Id M.User')
 makeTestUser = do
   kidsgroupId <- createKidsgroup admin kidsgroupName >>= assertSuccess
-  userId <- registerUser testUser{registerDataKidsgroup = kidsgroupId} >>= assertSuccess
-  pure (kidsgroupId, userId)
+  userId <- registerUser testUser{registerDataKidsgroup = kidsgroupId ^. M.id} >>= assertSuccess
+  pure (kidsgroupId ^. M.id, userId)

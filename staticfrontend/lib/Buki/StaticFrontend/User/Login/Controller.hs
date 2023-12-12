@@ -6,17 +6,15 @@ import Buki.StaticFrontend.Core.AppM
 import Buki.StaticFrontend.User.Login.Views (loginPage, loginSucceededPage, logoutSucceededPage)
 import Buki.StaticFrontend.User.Login.Types (LoginError(..), LoginData(..))
 import Buki.StaticFrontend.Core.Preludes.API
-import Buki.Backend.User (runUserDb)
 import Buki.Backend.Session
-import Data.Default (def)
 import Buki.Err (Err(..))
 import Servant (ServerT)
 import Buki.StaticFrontend.User.Login.API
 import Buki.Backend.Auth (Authorization)
-import Buki.Model.Types (SessionId)
+import Buki.Model (SessionId)
 import Data.Text
 import Effectful (liftIO)
-import Buki.Model.Types.Id (toUuid)
+import Buki.Model.Id (toUuid)
 
 showUserLogin :: () -> AppM Html
 showUserLogin () = liftViewM Nothing $ loginPage Nothing mempty
@@ -31,8 +29,7 @@ handleUserLogin () (FormValidation formData (Just LoginData{..})) = do
   liftIO $ putStrLn $ "LoginData: " ++ show loginDataEmail ++ " " ++ show loginDataPassword
   tryLogin >>= makeResponse
   where
-    tryLogin = runEffects $ runUserDb $ runSessionDb def $
-               makeSession loginDataEmail loginDataPassword
+    tryLogin = runEffects $ makeSession loginDataEmail loginDataPassword
 
     makeResponse (Success (sessionId, authorizedUser)) = do
       addHeader (encodeSessionId sessionId) <$> liftViewM (Just authorizedUser) loginSucceededPage
@@ -46,8 +43,7 @@ handleUserLogout :: Authorization '[] -> AppM Html
 handleUserLogout auth = do
   logout >>= makeResponse
   where
-    logout = runEffects $ runUserDb $ runSessionDb def $
-             destroyOwnSession auth
+    logout = runEffects $ destroyOwnSession auth
     makeResponse sessionDestroyed =
       liftViewM Nothing $ logoutSucceededPage sessionDestroyed
     

@@ -1,18 +1,21 @@
-module Buki.Model.Types.BookCopy
+{-# LANGUAGE UndecidableInstances #-}
+
+module Buki.Model.BookCopy
   ( BookCopy'(..)
   , BookCopy
   , BookCopyId
   , BookCopyField
   , pBookCopy
+  , bookCopyTable
   ) where
 
 import Data.Profunctor.Product.TH (makeAdaptorAndInstance')
 
-import Buki.Model.SqlType (SqlType)
-import Buki.Model.TH
-import Buki.Model.Types.Book
-import Buki.Model.Types.Id
-import Buki.Model.Types.Place
+import Buki.Model.Util.SqlType (SqlType)
+import Buki.Model.Util.TH
+import Buki.Model.Book
+import Buki.Model.Id
+import Buki.Model.Place
 
 data BookCopy' t1 t2 t3 t4 t5 = BookCopy
   { bookCopy'Id :: t1
@@ -39,3 +42,4 @@ makeDbAliases ''BookCopy' [ [t|BookCopyId|]
                           , [t|Maybe PlaceId|]
                           ]
 $(makeAdaptorAndInstance' ''BookCopy')
+$(makeDbTable "book_copies" ''BookCopy)

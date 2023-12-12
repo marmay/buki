@@ -7,8 +7,10 @@ import Buki.Eff.Db (Db)
 import Buki.TestUtil.Err
 import Buki.TestUtil.Psql (runDbTest)
 
-import Buki.Model.Types qualified as M
+import Buki.Model qualified as M
 import Buki.Types
+
+import Control.Lens ((^.))
 
 import Effectful
 
@@ -16,8 +18,8 @@ import Test.Hspec
 
 import Database.PostgreSQL.Simple (Connection)
 
-run :: Connection -> Eff '[Kidsgroup, Db, IOE] a -> IO a
-run conn = runEff . runDbTest conn . runKidsgroupDb
+run :: Connection -> Eff '[Db, IOE] a -> IO a
+run conn = runEff . runDbTest conn
 
 backendKidsgroupTestTree :: SpecWith Connection
 backendKidsgroupTestTree = do
@@ -28,7 +30,7 @@ backendKidsgroupTestTree = do
       run conn $ do
         res <- createKidsgroup admin (Name "foo") >>= assertSuccess
         kidsgroups <- listKidsgroups
-        liftIO $ kidsgroups `shouldBe` [ListKidsgroup res (Name "foo")]
+        liftIO $ kidsgroups `shouldBe` [ListKidsgroup (res ^. M.id) (Name "foo")]
         pure ()
     it "does not create two groups with the same name." $ \conn -> do
       run conn $ do
@@ -38,7 +40,7 @@ backendKidsgroupTestTree = do
   describe "Buki.Backend.Kidsgroup: renameKidsgroup" $ do
     it "renames a group" $ \conn -> do
       run conn $ do
-        r <- createKidsgroup admin (Name "foo") >>= assertSuccess
+        r <- (^. M.id) <$> (createKidsgroup admin (Name "foo") >>= assertSuccess)
         renameKidsgroup admin (M.toUuid r) "bar" >>= assertSuccess
         kidsgroups <- listKidsgroups
         liftIO $ kidsgroups `shouldBe` [ListKidsgroup r (Name "bar")]
@@ -46,9 +48,9 @@ backendKidsgroupTestTree = do
   describe "Buki.Backend.Kidsgroup: removeEmptyKidsgroup" $ do
     it "deletes an empty group" $ \conn -> do
       run conn $ do
-        r <- createKidsgroup admin (Name "foo") >>= assertSuccess
+        r <- (^. M.id) <$> (createKidsgroup admin (Name "foo") >>= assertSuccess)
         kidsgroups <- listKidsgroups
         liftIO $ kidsgroups `shouldBe` [ListKidsgroup r (Name "foo")]
-        removeEmptyKidsgroup admin (M.toUuid r) >>= assertSuccess
+        _ <- removeEmptyKidsgroup admin (M.toUuid r) >>= assertSuccess
         kidsgroups' <- listKidsgroups
         liftIO $ kidsgroups' `shouldBe` []

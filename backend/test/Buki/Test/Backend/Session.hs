@@ -8,18 +8,19 @@ import Buki.Backend.User
 
 import qualified Buki.Test.Backend.Dummy as D
 import Test.Hspec
+import Data.Default (def)
 import Database.PostgreSQL.Simple
 import Effectful
-import Buki.Backend.Kidsgroup
 import Buki.Eff.Db
 import Buki.Eff.Time
+import Buki.Eff.Settings
 import Buki.TestUtil.Psql (runDbTest)
 import Buki.TestUtil.Err
 import Data.Text (Text)
 import Buki.Validation
 
-run :: Connection -> Eff '[Session, Kidsgroup, User, Db, Time, IOE] a -> IO a
-run conn = runEff . runTime . runDbTest conn . runUserDb . runKidsgroupDb . runSessionDb defaultSessionSettings
+run :: Connection -> Eff '[Settings SessionSettings, Db, Time, IOE] a -> IO a
+run conn = runEff . runTime . runDbTest conn . runSettings def
 
 backendSessionTestTree :: SpecWith Connection
 backendSessionTestTree = do
@@ -91,7 +92,7 @@ backendSessionTestTree = do
         (_, userId) <- D.makeTestUser
         (sessionId, _) <- makeSession (registerDataEmail D.testUser) (registerDataPassword D.testUser)
           >>= assertSuccess
-        v <- destroyUserSession (fakeAuthorization @'[ 'UserManagement ]) userId
+        v <- destroyUserSessionFor (fakeAuthorization @'[ 'UserManagement ]) userId
         liftIO $ v `shouldBe` True
         authorize @'[] sessionId
           >>= assertError InvalidSessionId

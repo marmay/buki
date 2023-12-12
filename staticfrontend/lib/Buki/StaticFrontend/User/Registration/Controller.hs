@@ -13,7 +13,7 @@ import Servant.API
 import Servant.Server
 
 import Buki.Backend.User qualified as BU
-import Buki.Model.Types (Id (..), toUuid)
+import Buki.Model (Id (..), toUuid)
 import Buki.Validation (unvalidate)
 
 import Buki.Backend.Kidsgroup qualified as BK
@@ -31,7 +31,7 @@ failUserRegister = showUserRegister' . Just
 -- | Displays the user registration page; used by showUserRegister and failUserRegister.
 showUserRegister' :: Maybe RegistrationError -> FormValidationData -> AppM Html
 showUserRegister' registrationError formData = do
-  kidsgroups <- fmap (fmap toKeyNamePair) $ runEffects $ BK.runKidsgroupDb BK.listKidsgroups
+  kidsgroups <- fmap toKeyNamePair <$> runEffects BK.listKidsgroups
   case kidsgroups of
     [] -> liftViewM Nothing registerDisabledPage
     kidsgroups' ->
@@ -49,7 +49,6 @@ handleUserRegister _ (FormValidation formData (Just registerData))
  where
   tryRegistration =
     runEffects
-      $ BU.runUserDb
       $ BU.registerUser
       $ BU.RegisterData
         { BU.registerDataName = registerDataName registerData
@@ -61,7 +60,7 @@ handleUserRegister _ (FormValidation formData (Just registerData))
 
   makeResponse (Success _) = liftViewM Nothing registerSucceedPage
   makeResponse (Failure f) = failUserRegister (translateError f) formData
-  
+
   translateError =
     runUnionHandler
       $ UnionHandler (\(_ :: BU.EmailAddressTakenError) -> EmailAddressTakenError)

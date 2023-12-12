@@ -31,6 +31,15 @@ instance {-# OVERLAPPABLE #-} forall (r :: Type) (rs :: [Type]). r `In` (r ': rs
 instance {-# OVERLAPS #-} forall (r :: Type) (s :: Type) (rs :: [Type]). r `In` rs => r `In` (s ': rs) where
   index _ _ = 1 + index (Proxy @r) (Proxy @rs)
 
+type family Nub (rs :: [Type]) :: [Type] where
+  Nub '[] = '[]
+  Nub (r ': rs) = r ': Nub (Filter r rs)
+
+type family Filter (r :: Type) (rs :: [Type]) :: [Type] where
+  Filter _ '[] = '[]
+  Filter r (r ': rs) = Filter r rs
+  Filter r (s ': rs) = s ': Filter r rs
+
 -- This is infrastructure for embedding one union into another. A list of types @rs@ is
 -- embeddable into another list @ss@, if all types in @rs@ are also in @ss@. In order to
 -- embed @rs@ into @ss@, we need to know the index of each element @r@ of @rs@ in @ss@.

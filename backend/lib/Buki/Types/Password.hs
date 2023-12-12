@@ -9,7 +9,7 @@ import Data.Text qualified as T
 import Data.Profunctor.Product.Default qualified as O
 import Opaleye qualified as O
 
-import Buki.Model.SqlType (SqlType)
+import Buki.Model.Util.SqlType (SqlType)
 
 newtype Password = Password {unPassword :: Text}
   deriving (Eq, Show)

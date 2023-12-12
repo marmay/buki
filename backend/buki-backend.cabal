@@ -21,38 +21,42 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  Buki.Eff.Db
+                    , Buki.Eff.Db.Catch
+                    , Buki.Eff.Db.Eff
+                    , Buki.Eff.Db.Util
                     , Buki.Eff.FileStorage
+                    , Buki.Eff.IsbnLookup
+                    , Buki.Eff.Settings
                     , Buki.Eff.Time
                     , Buki.Err
                     , Buki.Backend.Auth
                     , Buki.Backend.Book
-                    , Buki.Backend.IsbnLookup
+                    , Buki.Backend.Common.Op
                     , Buki.Backend.Kidsgroup
                     , Buki.Backend.Place
                     , Buki.Backend.Session
                     , Buki.Backend.User
-                    , Buki.Model.SqlType
-                    , Buki.Model.Tables
-                    , Buki.Model.Types
                     , Buki.Types
                     , Buki.Union
                     , Buki.Validation
-                    , Buki.Model.Types.Book
-                    , Buki.Model.Types.BookCopy
-                    , Buki.Model.Types.BookTagLink
-                    , Buki.Model.Types.Id
-                    , Buki.Model.Types.Kidsgroup
-                    , Buki.Model.Types.Loan
-                    , Buki.Model.Types.LoanRange
-                    , Buki.Model.Types.LoanState
-                    , Buki.Model.Types.Permissions
-                    , Buki.Model.Types.Place
-                    , Buki.Model.Types.Session
-                    , Buki.Model.Types.Tag
-                    , Buki.Model.Types.User
-                    , Buki.Model.Types.UserBookFavorite
-                    , Buki.Model.Types.UserKidsgroupLink
-                    , Buki.Model.TH
+                    , Buki.Model
+                    , Buki.Model.Book
+                    , Buki.Model.BookCopy
+                    , Buki.Model.BookTagLink
+                    , Buki.Model.Id
+                    , Buki.Model.Kidsgroup
+                    , Buki.Model.Loan
+                    , Buki.Model.LoanRange
+                    , Buki.Model.LoanState
+                    , Buki.Model.Permissions
+                    , Buki.Model.Place
+                    , Buki.Model.Session
+                    , Buki.Model.Tag
+                    , Buki.Model.User
+                    , Buki.Model.UserBookFavorite
+                    , Buki.Model.UserKidsgroupLink
+                    , Buki.Model.Util.TH
+                    , Buki.Model.Util.SqlType
                     , Buki.Types.EmailAddress
                     , Buki.Types.Name
                     , Buki.Types.Password
@@ -143,10 +147,12 @@ test-suite buki-test
                     , buki-backend
                     , bytestring
                     , containers
+                    , data-default
                     , directory
                     , effectful-core
                     , exceptions
                     , hspec
+                    , lens
                     , temporary ^>= 1.3
                     , text
                     , typed-process ^>= 0.2

@@ -3,7 +3,7 @@
 
 -- | Super simplistic checked exceptions that I may replace with a off-the-shelf
 -- library later on.
-module Buki.Err (module Buki.Union, Err (..), mkFailure, mkSuccess, In (..), Embedable (..), embeddingErrors, processWith, mapWith, guardWith, mapErrors, constMapErrors, wrapErrors, mapWithPure, liftS, liftE, liftF, liftR, liftG, unwrap, unwrapM, unwrap', unwrapM') where
+module Buki.Err (module Buki.Union, Err (..), mkFailure, mkSuccess, In (..), Embedable (..), embeddingErrors, processWith, mapWith, guardWith, mapErrors, constMapErrors, wrapErrors, mapWithPure, liftS, liftE, liftF, liftR, liftG, unwrap, unwrapM, unwrap', unwrapM', forceUnwrapOne, errToMaybe) where
 
 import Buki.Union
 
@@ -30,6 +30,10 @@ mkFailure = Failure . inject
 
 mkSuccess :: forall err a. a -> Err err a
 mkSuccess = Success
+
+errToMaybe :: Err errs a -> Maybe a
+errToMaybe (Success a) = Just a
+errToMaybe _ = Nothing
 
 embeddingErrors ::
   forall (m :: Type -> Type) (errs' :: [Type]) (errs :: [Type]) (a :: Type) (b :: Type).
@@ -192,3 +196,9 @@ unwrap' msg (Failure _) = error $ "unwrapping failed: " <> msg
 unwrapM' :: forall (m :: Type -> Type) (errs :: [Type]) (a :: Type). (Monad m) => String -> Err errs a -> m a
 unwrapM' _   (Success a) = pure a
 unwrapM' msg (Failure _) = error $ "unwrapping failed: " <> msg
+
+forceUnwrapOne :: forall err errs a. String -> Err (err ': errs) a -> Err errs a
+forceUnwrapOne _   (Success a) = Success a
+forceUnwrapOne msg (Failure e) = case project' @err @errs e of
+  Left (es :: Union errs) -> Failure es
+  Right _ -> error $ "unwrapping failed: " <> msg

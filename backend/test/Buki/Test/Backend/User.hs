@@ -2,10 +2,9 @@
 
 module Buki.Test.Backend.User where
 
-import Buki.Backend.Kidsgroup
 import Buki.Backend.User
 import Buki.Eff.Db (Db, dbMkUuid)
-import Buki.Model.Types qualified as M
+import Buki.Model qualified as M
 import Buki.TestUtil.Err
 import Buki.TestUtil.Psql (runDbTest)
 import Buki.Types
@@ -18,11 +17,11 @@ import Effectful
 
 import Test.Hspec
 
-import Buki.Model.Types (Permissions (..))
+import Buki.Model (Permissions (..))
 import Database.PostgreSQL.Simple (Connection)
 
-run :: Connection -> Eff '[Kidsgroup, User, Db, IOE] a -> IO a
-run conn = runEff . runDbTest conn . runUserDb . runKidsgroupDb
+run :: Connection -> Eff '[Db, IOE] a -> IO a
+run conn = runEff . runDbTest conn
 
 -- | Tests for the User effect.
 backendUserTestTree :: SpecWith Connection

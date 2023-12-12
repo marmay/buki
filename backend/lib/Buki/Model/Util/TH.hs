@@ -1,4 +1,4 @@
-module Buki.Model.TH where
+module Buki.Model.Util.TH where
 -- ^ This module helps reducing boilerplate code when defining the
 -- database entities. It is used by the @Buki.Model.Types.*@ modules
 -- and the @Buki.Model.Tables@ module.
@@ -32,9 +32,15 @@ import  Language.Haskell.TH
 import Control.Lens
 
 import Data.Char (toLower, isUpper)
+import qualified Data.Kind as K (Type)
+import Data.Proxy (Proxy)
 
 import qualified Opaleye as O
 
+class DbTable a where
+  type DbField a :: K.Type
+  type DbHaskell a :: K.Type
+  dbTable :: Proxy a -> O.Table (DbField a) (DbField a)
 
 requiredTableMaybeField ::
   String ->
@@ -77,6 +83,7 @@ makeDbTable tableName baseName = do
   let baseValueNameStr = lowerHead baseNameStr
   let fieldPrefix = baseValueNameStr ++ "'"
   let functionName = mkName $ baseValueNameStr ++ "Table"
+  let genericType = mkName $ baseNameStr ++ "'"
   let haskellType = mkName baseNameStr
   let sqlType = mkName $ baseNameStr ++ "Field"
   let sqlTableType = ConT ''O.Table `AppT` ConT sqlType `AppT` ConT sqlType
@@ -87,6 +94,11 @@ makeDbTable tableName baseName = do
   table <- makeTable baseNameStr fieldPrefix $ fieldNames `zip` fieldTypes
   pure [ SigD functionName sqlTableType
        , FunD functionName [Clause [] (NormalB table) []]
+       , InstanceD Nothing [] (AppT (ConT ''DbTable) (ConT genericType))
+         [ TySynInstD (TySynEqn Nothing (AppT (ConT ''DbField) (ConT genericType)) (ConT sqlType))
+         , TySynInstD (TySynEqn Nothing (AppT (ConT ''DbHaskell) (ConT genericType)) (ConT sqlType))
+         , FunD 'dbTable [Clause [WildP] (NormalB $ VarE functionName) []]
+         ]
        ]
   where
     getFieldNames :: Name -> Q [Name]

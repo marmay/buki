@@ -1,7 +1,7 @@
 module Buki.Types.Identifier (Identifier (..)) where
 
 import Buki.Validation
-import Buki.Model.SqlType (SqlType)
+import Buki.Model.Util.SqlType (SqlType)
 
 import qualified Data.Char as C
 import Data.Text (Text)

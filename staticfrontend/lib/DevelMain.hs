@@ -23,6 +23,7 @@ appConfig = AppConfig
     , connectPassword = ""
     , connectDatabase = "buki"
     }
+  , appConfigFileStorageDir = "static"
   }
 
 -- It is a bit of a mess that we have to define every combination of permissions
